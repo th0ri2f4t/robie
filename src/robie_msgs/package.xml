@@ -3,16 +3,14 @@
 <package format="3">
   <name>robie_msgs</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="th0r12f4t@todo.todo">th0r12f4t</maintainer>
-  <license>TODO: License declaration</license>
-
+  <description>Custom interfaces for R.O.B.I.E.</description>
+  <maintainer email="keneayogu@gmail.com">th0r12f4t</maintainer>
+  <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
-
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
-
-  <export>
-    <build_type>ament_cmake</build_type>
-  </export>
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
+  <export><build_type>ament_cmake</build_type></export>
 </package>

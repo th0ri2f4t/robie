@@ -18,10 +18,12 @@ class PlumeSim(Node):
         self.declare_parameter('leak_y', 0.5)
         self.declare_parameter('peak', 400.0)
         self.declare_parameter('sigma', 0.5)
+        self.declare_parameter('noise_sigma', 4.0)
         self.leak_x = self.get_parameter('leak_x').value
         self.leak_y = self.get_parameter('leak_y').value
         self.peak = self.get_parameter('peak').value
         self.sigma = self.get_parameter('sigma').value
+        self.noise_sigma = self.get_parameter('noise_sigma').value
 
         self.x = self.y = self.yaw = 0.0
         self.vx = self.wz = 0.0
@@ -51,7 +53,7 @@ class PlumeSim(Node):
 
         d2 = (self.x - self.leak_x) ** 2 + (self.y - self.leak_y) ** 2
         reading = self.peak * math.exp(-d2 / (2 * self.sigma * self.sigma))
-        reading = max(0.0, reading + random.gauss(0, 4))
+        reading = max(0.0, reading + random.gauss(0, self.noise_sigma))
         self.gas_pub.publish(Float64(data=reading))
 
 

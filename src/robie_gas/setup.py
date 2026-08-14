@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
 		'gas_climber = robie_gas.gas_climber:main',
 		'plume_sim = robie_gas.plume_sim:main',
+		'roc_harness = robie_gas.roc_harness:main',
         ],
     },
 )

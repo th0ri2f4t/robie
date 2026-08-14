@@ -1,10 +1,9 @@
-import csv, math, os, time
+import csv, math, os, time, sys
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-
 
 class GasClimber(Node):
     PATROL, DRIVE, TURN, HOME, LOCALISED = range(5)
@@ -23,9 +22,22 @@ class GasClimber(Node):
         self.declare_parameter('margin', 5.0)
         self.declare_parameter('probe_deg', 60.0)
         self.declare_parameter('max_steps', 15)
-        self.declare_parameter('timeout_s', 180.0)
+        self.declare_parameter('timeout_s', 90.0)
         self.declare_parameter('ema_alpha', 0.2)
         self.declare_parameter('home_dist', 0.15)
+        self.declare_parameter('max_run_s', 0.0)  # 0.0 = infinite (manual), >0 = batch mode
+        self.declare_parameter('log_file', '')
+
+        log_path = self.get_parameter('log_file').value
+        if not log_path:
+            os.makedirs(os.path.expanduser('~/robie_ws/logs'), exist_ok=True)
+            stamp = time.strftime('%Y%m%d_%H%M%S')
+            log_path = os.path.expanduser('~/robie_ws/logs/gas_%s.csv' % stamp)
+        else:
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        self.csv = open(log_path, 'w', newline='')
+        self.writer = csv.writer(self.csv)
+        self.writer.writerow(['t', 'state', 'x', 'y', 'yaw', 'raw', 'ema'])
 
         self.state = self.PATROL
         self.armed = True
@@ -42,12 +54,7 @@ class GasClimber(Node):
         self.localise_on_arrive = False
         self.hold_until = 0.0
         self.climb_start = 0.0
-
-        os.makedirs(os.path.expanduser('~/robie_ws/logs'), exist_ok=True)
-        stamp = time.strftime('%Y%m%d_%H%M%S')
-        self.csv = open(os.path.expanduser('~/robie_ws/logs/gas_%s.csv' % stamp), 'w', newline='')
-        self.writer = csv.writer(self.csv)
-        self.writer.writerow(['t', 'state', 'x', 'y', 'yaw', 'raw', 'ema'])
+        self.start_time = time.time()
         self.get_logger().info('GasClimber ready, state=PATROL')
 
     def gas_cb(self, msg):
@@ -90,6 +97,12 @@ class GasClimber(Node):
     def tick(self):
         now = time.time()
         th = self.get_parameter('threshold').value
+        max_run = self.get_parameter('max_run_s').value
+
+        # BULLETPROOF SHUTDOWN: If max_run > 0 and we've been patrolling too long, die.
+        if max_run > 0.0 and self.state == self.PATROL and (now - self.start_time) > max_run:
+            self.get_logger().info('Max run time reached in PATROL, exiting')
+            raise SystemExit(0)
 
         if self.state == self.PATROL:
             if not self.armed and self.ema < th * 0.5:
@@ -147,7 +160,12 @@ class GasClimber(Node):
         elif self.state == self.LOCALISED:
             self.stop()
             if now > self.hold_until:
-                self.set_state(self.PATROL)
+                # BULLETPROOF SHUTDOWN: If max_run > 0 and we finished localising, die.
+                if max_run > 0.0:
+                    self.get_logger().info('Localised and hold complete, exiting')
+                    raise SystemExit(0)
+                else:
+                    self.set_state(self.PATROL)
 
         if self.state in (self.DRIVE, self.TURN, self.HOME) and \
            (now - self.climb_start) > self.get_parameter('timeout_s').value:
@@ -188,13 +206,15 @@ class GasClimber(Node):
         self.hold_until = time.time() + 5.0
         self.set_state(self.LOCALISED)
 
-
 def main(args=None):
     rclpy.init(args=args)
     node = GasClimber()
     try:
         rclpy.spin(node)
+    except SystemExit:
+        pass  # Clean exit triggered by our max_run_s logic
     finally:
         node.csv.close()
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
