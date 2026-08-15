@@ -3,16 +3,13 @@
 <package format="3">
   <name>robie_bringup</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="th0r12f4t@todo.todo">th0r12f4t</maintainer>
-  <license>TODO: License declaration</license>
-
-  <test_depend>ament_copyright</test_depend>
-  <test_depend>ament_flake8</test_depend>
-  <test_depend>ament_pep257</test_depend>
-  <test_depend>python3-pytest</test_depend>
-
-  <export>
-    <build_type>ament_python</build_type>
-  </export>
+  <description>One-command bringup for the R.O.B.I.E. locomotion spine</description>
+  <maintainer email="keneayogu@gmail.com">kene</maintainer>
+  <license>Apache-2.0</license>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>robie_hardware</exec_depend>
+  <exec_depend>robie_safety</exec_depend>
+  <exec_depend>robie_nav</exec_depend>
+  <export><build_type>ament_python</build_type></export>
 </package>
