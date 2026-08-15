@@ -3,16 +3,15 @@
 <package format="3">
   <name>robie_safety</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="th0r12f4t@todo.todo">th0r12f4t</maintainer>
-  <license>TODO: License declaration</license>
-
+  <description>Safety interlock and E-stop logic for R.O.B.I.E.</description>
+  <maintainer email="keneayogu@gmail.com">kene</maintainer>
+  <license>Apache-2.0</license>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>robie_msgs</depend>
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
-
-  <export>
-    <build_type>ament_python</build_type>
-  </export>
+  <export><build_type>ament_python</build_type></export>
 </package>
