@@ -1,3 +1,4 @@
+import time
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool
@@ -6,6 +7,7 @@ from robie_msgs.msg import WheelSpeeds
 class MockBridge(Node):
     def __init__(self):
         super().__init__('mock_bridge')
+        self.last_log = 0.0
         self.create_timer(0.5, self.heartbeat)
         self.create_subscription(WheelSpeeds, '/motor_targets', self.cmd_cb, 10)
         self.estop_pub = self.create_publisher(Bool, '/hw/estop', 10)
@@ -21,8 +23,13 @@ class MockBridge(Node):
         l = Bool(); l.data = True; self.link_pub.publish(l)
 
     def cmd_cb(self, msg):
-        if msg.front_left != 0.0 or msg.front_right != 0.0:
-            self.get_logger().info(f"MOCK MOTORS: Spinning FL={msg.front_left:.2f}, FR={msg.front_right:.2f} rad/s")
+        now = time.time()
+        if now - self.last_log > 1.0 and \
+           (abs(msg.front_left) > 0.01 or abs(msg.front_right) > 0.01):
+            self.last_log = now
+            self.get_logger().info(
+                "MOCK MOTORS: FL=%.2f FR=%.2f RL=%.2f RR=%.2f rad/s"
+                % (msg.front_left, msg.front_right, msg.rear_left, msg.rear_right))
 
 def main(args=None):
     rclpy.init(args=args)

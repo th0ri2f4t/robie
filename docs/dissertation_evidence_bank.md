@@ -160,3 +160,13 @@ when drafting. Add new entries as real-hardware results arrive (Weeks 5-6).
   watchdog timeout converts silent co-processor failure into a safe stop,
   closing the classic 'last known good value' hazard."
 - Artefact: robie_safety/safety_node.py (watchdog), robie_hardware/mock_bridge.py (SITL demo).
+
+## 14. Full-stack mission SITL (end-to-end success)
+- Evidence: robie_sim.launch.py runs plume + climber + entire spine; mission
+  logged LEAK LOCALISED at (1.79, 0.11) vs true leak (1.5, 0.5) = 0.49 m
+  (TRUE POSITIVE); mock motors echoed correct wheel speeds per phase.
+- Chapter: Results (first mission figure: logs/mission_demo.png).
+- Framing: "The complete software stack executed a successful detection
+  mission in simulation, demonstrating correct phase transitions and
+  sub-0.75 m localisation accuracy prior to hardware availability."
+- Artefact: robie_bringup/launch/robie_sim.launch.py, plot_mission.py.
