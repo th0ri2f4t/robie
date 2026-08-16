@@ -1,0 +1,41 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="robie_warehouse">
+    <include><uri>model://ground_plane</uri></include>
+    <include><uri>model://sun</uri></include>
+    <model name="room">
+      <static>true</static>
+      <link name="walls">
+        <collision name="wall_n"><pose>0 4 0.5 0 0 0</pose><geometry><box><size>10.4 0.2 1.0</size></box></geometry></collision>
+        <visual name="wall_n_v"><pose>0 4 0.5 0 0 0</pose><geometry><box><size>10.4 0.2 1.0</size></box></geometry></visual>
+        <collision name="wall_s"><pose>0 -4 0.5 0 0 0</pose><geometry><box><size>10.4 0.2 1.0</size></box></geometry></collision>
+        <visual name="wall_s_v"><pose>0 -4 0.5 0 0 0</pose><geometry><box><size>10.4 0.2 1.0</size></box></geometry></visual>
+        <collision name="wall_e"><pose>5 0 0.5 0 0 0</pose><geometry><box><size>0.2 8.4 1.0</size></box></geometry></collision>
+        <visual name="wall_e_v"><pose>5 0 0.5 0 0 0</pose><geometry><box><size>0.2 8.4 1.0</size></box></geometry></visual>
+        <collision name="wall_w"><pose>-5 0 0.5 0 0 0</pose><geometry><box><size>0.2 8.4 1.0</size></box></geometry></collision>
+        <visual name="wall_w_v"><pose>-5 0 0.5 0 0 0</pose><geometry><box><size>0.2 8.4 1.0</size></box></geometry></visual>
+      </link>
+    </model>
+    <model name="shelf1">
+      <static>true</static>
+      <link name="link"><pose>2.0 1.5 0.5 0 0 0</pose>
+        <collision name="c"><geometry><box><size>1.5 0.6 1.0</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>1.5 0.6 1.0</size></box></geometry></visual>
+      </link>
+    </model>
+    <model name="shelf2">
+      <static>true</static>
+      <link name="link"><pose>-2.0 -1.0 0.5 0 0 0</pose>
+        <collision name="c"><geometry><box><size>0.8 2.0 1.0</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.8 2.0 1.0</size></box></geometry></visual>
+      </link>
+    </model>
+    <model name="pipe">
+      <static>true</static>
+      <link name="link"><pose>1.0 -2.0 0.6 0 0 0</pose>
+        <collision name="c"><geometry><cylinder><radius>0.15</radius><length>1.2</length></cylinder></geometry></collision>
+        <visual name="v"><geometry><cylinder><radius>0.15</radius><length>1.2</length></cylinder></geometry></visual>
+      </link>
+    </model>
+  </world>
+</sdf>
