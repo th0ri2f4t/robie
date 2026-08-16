@@ -18,14 +18,14 @@ class MotorArbiter(Node):
         self.create_subscription(WheelSpeeds, '/wheel_commands', self.cmd_cb, 10)
         self.pub = self.create_publisher(WheelSpeeds, '/motor_targets', 10)
 
-        # Publish to the ESP32 at 50Hz (20ms) for smooth motor control
         self.create_timer(0.02, self.publish_targets)
         self.get_logger().info('MotorArbiter ready. Waiting for safety enable.')
 
     def enable_cb(self, msg):
+        if msg.data != self.enabled:
+            state = "ENABLED" if msg.data else "DISABLED (KILLED)"
+            self.get_logger().warn('Safety interlock changed to: %s' % state)
         self.enabled = msg.data
-        state = "ENABLED" if self.enabled else "DISABLED (KILLED)"
-        self.get_logger().warn(f'Safety interlock changed to: {state}')
 
     def cmd_cb(self, msg):
         self.latest_commands = msg
@@ -40,7 +40,6 @@ class MotorArbiter(Node):
             out.rear_left = self.latest_commands.rear_left
             out.rear_right = self.latest_commands.rear_right
         else:
-            # HARD OVERRIDE: Force all wheels to 0.0 regardless of navigation commands
             out.front_left = 0.0
             out.front_right = 0.0
             out.rear_left = 0.0

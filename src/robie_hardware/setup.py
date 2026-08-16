@@ -20,6 +20,7 @@ setup(
     entry_points={
         'console_scripts': [
             'serial_bridge = robie_hardware.serial_bridge_node:main',
+            'mock_bridge = robie_hardware.mock_bridge:main',
         ],
     },
 )

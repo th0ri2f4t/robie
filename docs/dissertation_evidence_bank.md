@@ -149,3 +149,14 @@ when drafting. Add new entries as real-hardware results arrive (Weeks 5-6).
 3. EMA step-response sketch (Finding 4).
 4. Pump off/on paired ROC curves (after Week 2 bench test).
 5. Real-hardware ROC (Week 6) beside the simulated ROC.
+
+## 13. Silent-failure watchdog (fail-safe on telemetry loss)
+- Evidence: safety_node forces motors off if no /hw/rf_alive heartbeat for
+  2.0 s; demonstrated in SITL by killing mock_bridge: log shows
+  "HEARTBEAT TIMEOUT -> Cutting power" and /motor_enable flips to false
+  with no human intervention.
+- Chapter: V&V / safety case.
+- Framing: "The interlock treats absence of telemetry as a fault: a
+  watchdog timeout converts silent co-processor failure into a safe stop,
+  closing the classic 'last known good value' hazard."
+- Artefact: robie_safety/safety_node.py (watchdog), robie_hardware/mock_bridge.py (SITL demo).

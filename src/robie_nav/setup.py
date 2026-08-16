@@ -12,7 +12,7 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='th0r12f4t',
+    maintainer='kene',
     maintainer_email='keneayogu@gmail.com',
     description='Navigation and locomotion for R.O.B.I.E.',
     license='Apache-2.0',
@@ -20,6 +20,7 @@ setup(
     entry_points={
         'console_scripts': [
             'mecanum_driver = robie_nav.mecanum_driver:main',
+            'motor_arbiter = robie_nav.motor_arbiter:main',
         ],
     },
 )
