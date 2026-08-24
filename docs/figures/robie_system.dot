@@ -1,0 +1,42 @@
+digraph robie_system {
+  rankdir=TB;
+  splines=polyline;
+  nodesep=0.6; ranksep=0.7;
+  node [shape=box, fontname="Helvetica", fontsize=11, style=filled, fillcolor="#D9E6F2", color="#7A96B8"];
+  edge [fontname="Helvetica", fontsize=9, color="#404040"];
+
+  boot [label="Robot boot\n(sensors initialize)", style="rounded,filled"];
+  sense [label="Sensors publish\n(scan, gas, odom)", fillcolor="#EDEDED"];
+  slam [label="SLAM Toolbox\nbuilds map + pose"];
+  gasf [label="Gas filter (EMA)\nsmooths raw readings"];
+  nav [label="Nav2 computes path\n(global plan + local avoidance)"];
+  climb [label="Gas controller decides\n(patrol / climb / home)"];
+  gate [label="Safety check\n(enabled ?)", shape=diamond, fillcolor="#F2D9D9"];
+  arb [label="Motor arbiter\nblends commands x gate"];
+  uart [label="Serial bridge\nROS -> UART"];
+  fw [label="ESP32 firmware\nparses commands"];
+  link [label="Watchdog check\n(link alive ?)", shape=diamond, fillcolor="#F2D9D9"];
+  drv [label="Mecanum IK + drivers"];
+  wheels [label="Robot moves", style="rounded,filled"];
+  cut [label="MOTORS CUT", style="rounded,filled", fillcolor="#F2D9D9"];
+  tele [label="Telemetry -> ground station", style="rounded,filled", fillcolor="#FFF6D6"];
+
+  boot -> sense;
+  sense -> slam [label="/scan"];
+  sense -> gasf [label="/gas/raw"];
+  slam -> nav [label="/map, /pose"];
+  gasf -> climb [label="g_ema"];
+  nav -> arb [label="/cmd_vel (NAV)"];
+  climb -> arb [label="/cmd_vel (CLIMB)"];
+  arb -> gate [label="proposed command"];
+  gate -> arb [label="Yes: motor_enable=1", style=dashed];
+  gate -> cut [label="No: motor_enable=0"];
+  arb -> uart [label="/motor_targets"];
+  uart -> fw [label="UART frames"];
+  fw -> link;
+  link -> drv [label="Yes"];
+  link -> cut [label="No"];
+  drv -> wheels;
+  wheels -> tele [style=dashed];
+  tele -> sense [label="cycle repeats", style=dashed];
+}

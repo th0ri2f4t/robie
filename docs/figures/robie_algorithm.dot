@@ -1,0 +1,38 @@
+digraph robie_algorithm {
+  rankdir=TB;
+  splines=polyline;
+  nodesep=0.6; ranksep=0.7;
+  node [shape=box, fontname="Helvetica", fontsize=11, style=filled, fillcolor="#D9E6F2", color="#7A96B8"];
+  edge [fontname="Helvetica", fontsize=9, color="#404040"];
+
+  start [label="Mission start\n(autonomous patrol)", style="rounded,filled"];
+  patrol [label="1. PATROL\nwaypoint sweep, v_p = 0.3 m/s"];
+  trig [label="2. g_ema > theta_trig (50) ?", shape=diamond];
+  climb [label="3. CLIMB\ndrive v_c = 0.25 m/s\ntrack rising g_ema\nhold peak p_peak"];
+  fall [label="4. g_ema falling\nN_fail = 3 samples ?", shape=diamond];
+  turn [label="5. TURN\nrotate dtheta = 45 deg\n(alternate +/-)"];
+  lost [label="6. Casts exhausted ?", shape=diamond];
+  home [label="7. HOME + CAST\nreturn to p_peak\nradial probes"];
+  conv [label="8. Converged within\nr_loc = 0.75 m of p_peak ?", shape=diamond];
+  loc [label="LOCALISED\nreport p_peak", style="rounded,filled", fillcolor="#CDE5CD"];
+  safety [label="Safety fault ?\nlink age > tau_link (0.5 s)\nOR bumper OR E-stop", shape=diamond, fillcolor="#F2D9D9"];
+  cut [label="MOTORS CUT\nmotor_enable = 0", style="rounded,filled", fillcolor="#F2D9D9"];
+
+  start -> patrol;
+  patrol -> trig [label="sample g(t), EMA alpha = 0.15"];
+  trig -> patrol [label="No"];
+  trig -> climb [label="Yes"];
+  climb -> fall;
+  fall -> climb [label="No"];
+  fall -> turn [label="Yes"];
+  turn -> lost;
+  lost -> climb [label="No"];
+  lost -> home [label="Yes"];
+  home -> climb [label="reacquired"];
+  home -> conv;
+  conv -> home [label="No"];
+  conv -> loc [label="Yes"];
+  patrol -> safety [style=dashed, label="checked every cycle"];
+  safety -> cut [label="Yes"];
+  safety -> patrol [label="No", style=dashed];
+}
