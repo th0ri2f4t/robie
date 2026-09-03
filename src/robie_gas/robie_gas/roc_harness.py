@@ -1,6 +1,6 @@
 import subprocess, time, os, itertools
 
-THRESHOLDS = [50, 100, 150, 200, 250, 300]
+THRESHOLDS = [50]
 NOISE_LEVELS = [0, 2, 4, 8, 16]
 REPEATS = 3
 TIMEOUT = 100
@@ -18,7 +18,7 @@ def run_single(threshold, noise_sigma, leak_present, run_id):
                    '-p', 'threshold:=%f' % threshold,
                    '-p', 'log_file:=%s' % log_file,
                    '-p', 'auto_shutdown:=true',
-                   '-p', 'max_run_s:=40.0',
+                   '-p', 'max_run_s:=60.0',
                    '-p', 'timeout_s:=90.0']
 
     plume_proc = subprocess.Popen(plume_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
