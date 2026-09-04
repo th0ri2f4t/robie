@@ -30,7 +30,7 @@ static void applyMotors() {
 }
 
 static void readSafetyPins() {
-  estop = digitalRead(PIN_ESTOP) == LOW;
+  estop = digitalRead(PIN_ESTOP) == HIGH;
   bumpF = digitalRead(PIN_BUMP_F) == LOW;
   bumpR = digitalRead(PIN_BUMP_R) == LOW;
 }
