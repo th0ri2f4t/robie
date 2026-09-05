@@ -31,8 +31,8 @@ static void applyMotors() {
 
 static void readSafetyPins() {
   estop = digitalRead(PIN_ESTOP) == HIGH;
-  bumpF = digitalRead(PIN_BUMP_F) == LOW;
-  bumpR = digitalRead(PIN_BUMP_R) == LOW;
+  bumpF = digitalRead(PIN_BUMP_F) == HIGH;
+  bumpR = digitalRead(PIN_BUMP_R) == HIGH;
 }
 
 static char buf[96];
