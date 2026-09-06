@@ -1,6 +1,6 @@
 #pragma once
 // R.O.B.I.E. firmware v1 pin map (ESP32 DevKit V1)
-// Reconcile against the CTO chatbot's wiring diagram at assembly time.
+// L298N requires IN1/IN2 pairs for direction control
 
 // Motor PWM (LEDC channels 0-3)
 #define PIN_M_FL 25
@@ -8,14 +8,17 @@
 #define PIN_M_RL 27
 #define PIN_M_RR 32
 
-// Motor direction
-#define PIN_D_FL 33
-#define PIN_D_FR 14
-#define PIN_D_RL 16
-#define PIN_D_RR 17
+// Motor direction (IN1 / IN2 pairs)
+#define PIN_D_FL_1 33
+#define PIN_D_FL_2 21
+#define PIN_D_FR_1 14
+#define PIN_D_FR_2 23
+#define PIN_D_RL_1 16
+#define PIN_D_RL_2 13
+#define PIN_D_RR_1 17
+#define PIN_D_RR_2 12
 
-// Safety inputs (active LOW, internal pull-up)
-// NOTE: GPIO 34-39 have NO internal pull-ups on ESP32; do not use them here.
+// Safety inputs
 #define PIN_ESTOP  4
 #define PIN_BUMP_F 5
 #define PIN_BUMP_R 18
