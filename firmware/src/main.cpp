@@ -1,7 +1,15 @@
+// R.O.B.I.E. spinal cord v3. Serial protocol (115200 baud, line-based):
+//   Pi -> ESP32:  M,<fl>,<fr>,<rl>,<rr>   wheel targets, rad/s
+//                 S,<0|1>                 safety enable from motor_arbiter
+//   ESP32 -> Pi:  T,<e>,<bf>,<br>         safety inputs @20 Hz
+//                 H,<millis>              heartbeat @1 Hz
+// Defense in depth: firmware hard-cuts motors on E-stop regardless of Pi.
+// Motor stage: L298N dual H-bridge, IN1/IN2 direction pairs per motor.
+
 #include <Arduino.h>
 #include "config.h"
 
-static bool estop = true;
+static bool estop = true;   // fail-safe defaults until pins are read
 static bool bumpF = true;
 static bool bumpR = true;
 static bool serialEnable = false;
@@ -9,24 +17,22 @@ static float w[4] = {0, 0, 0, 0};
 static unsigned long lastSafetyTx = 0;
 static unsigned long lastHeartbeat = 0;
 
-static const int pwmPins[4] = {PIN_M_FL, PIN_M_FR, PIN_M_RL, PIN_M_RR};
+static const int pwmPins[4]  = {PIN_M_FL, PIN_M_FR, PIN_M_RL, PIN_M_RR};
 static const int dirPins1[4] = {PIN_D_FL_1, PIN_D_FR_1, PIN_D_RL_1, PIN_D_RR_1};
 static const int dirPins2[4] = {PIN_D_FL_2, PIN_D_FR_2, PIN_D_RL_2, PIN_D_RR_2};
 
 static void applyMotors() {
-  const bool on = serialEnable && !estop;
+  const bool on = serialEnable && !estop;   // firmware interlock
   for (int i = 0; i < 4; i++) {
     float c = constrain(w[i], -WHEEL_MAX_RAD_S, WHEEL_MAX_RAD_S);
     uint8_t duty = on ? (uint8_t)(fabs(c) / WHEEL_MAX_RAD_S * 255.0f) : 0;
-    
-    // L298N dual-direction logic
-    if (!on || duty == 0) {
+    if (duty == 0) {                        // stopped: coast (both IN LOW)
       digitalWrite(dirPins1[i], LOW);
       digitalWrite(dirPins2[i], LOW);
-    } else if (c >= 0.0f) {
+    } else if (c >= 0.0f) {                 // forward
       digitalWrite(dirPins1[i], HIGH);
       digitalWrite(dirPins2[i], LOW);
-    } else {
+    } else {                                // reverse
       digitalWrite(dirPins1[i], LOW);
       digitalWrite(dirPins2[i], HIGH);
     }
@@ -35,8 +41,8 @@ static void applyMotors() {
 }
 
 static void readSafetyPins() {
-  estop = digitalRead(PIN_ESTOP) == HIGH;
-  bumpF = digitalRead(PIN_BUMP_F) == HIGH; // HIGH = obstacle for Sharp IR
+  estop = digitalRead(PIN_ESTOP) == HIGH;   // NC wiring; wire-break -> HIGH -> STOP
+  bumpF = digitalRead(PIN_BUMP_F) == HIGH;  // Sharp IR: HIGH = obstacle
   bumpR = digitalRead(PIN_BUMP_R) == HIGH;
 }
 
