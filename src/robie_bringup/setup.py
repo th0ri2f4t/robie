@@ -1,27 +1,2 @@
-import os
-from glob import glob
-from setuptools import find_packages, setup
-
-package_name = 'robie_bringup'
-
-setup(
-    name=package_name,
-    version='0.0.0',
-    packages=find_packages(exclude=['test']),
-    data_files=[
-        ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
-        (os.path.join('share', package_name, 'worlds'), glob('worlds/*.world')),
-        (os.path.join('share', package_name, 'urdf'), glob('urdf/*.urdf')),
-        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
-    ],
-    install_requires=['setuptools'],
-    zip_safe=True,
-    maintainer='kene',
-    maintainer_email='keneayogu@gmail.com',
-    description='One-command bringup for the R.O.B.I.E. locomotion spine',
-    license='Apache-2.0',
-    tests_require=['pytest'],
-    entry_points={},
-)
+from setuptools import setup
+setup(name='robie_bringup', version='0.1.0', packages=['robie_bringup'], data_files=[('share/ament_index/resource_index/packages', ['resource/robie_bringup']), ('share/robie_bringup', ['package.xml'])], install_requires=['setuptools'], maintainer='th0r12f4t', maintainer_email='th0r12f4t@local', description='R.O.B.I.E. bringup: safety bridge and web bridge', license='MIT', entry_points={'console_scripts': ['safety_bridge = robie_bringup.safety_bridge:main', 'web_bridge = robie_bringup.web_bridge:main']})

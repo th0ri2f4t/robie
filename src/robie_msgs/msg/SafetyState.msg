@@ -1,6 +1,6 @@
-std_msgs/Header header
-bool estop_pressed
-bool bumper_front
-bool bumper_rear
-bool nrf_link_alive
-bool motors_enabled
+bool estop
+bool bump_front
+bool bump_rear
+bool link_ok
+bool armed
+float32 telemetry_hz
