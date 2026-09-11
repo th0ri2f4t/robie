@@ -25,6 +25,8 @@ h1 { font-size: 26px; font-weight: 800; letter-spacing: 0.06em; }
 .dot.on { background: var(--success); box-shadow: 0 0 8px var(--success); }
 #connText { font-size: 12px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
 .badge { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; color: var(--warning); border: 1px solid rgba(251, 191, 36, 0.4); border-radius: 6px; padding: 3px 8px; }
+.navlink { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; color: var(--lav); border: 1px solid rgba(205, 180, 246, 0.45); border-radius: 6px; padding: 4px 9px; text-decoration: none; }
+.navlink:hover { background: rgba(205, 180, 246, 0.15); }
 .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
 .card {
   grid-column: span 4;

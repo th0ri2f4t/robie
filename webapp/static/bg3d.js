@@ -1,4 +1,5 @@
-// R.O.B.I.E. bg3d v3 - pastel-purple rover, lavender trail, beacon + pulses
+// R.O.B.I.E. bg3d v4 - mecanum rover (shared builder), lavender trail, beacon + pulses
+import { buildMecanumRover } from './rover3d.js';
 try {
   const THREE = await import('three');
   const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
@@ -21,35 +22,9 @@ try {
   const key = new THREE.DirectionalLight(0xd8c7ff, 1.7); key.position.set(4, 6, 3); scene.add(key);
   const rim = new THREE.PointLight(0xf472b6, 1.1, 20); rim.position.set(-4, 2.5, -4); scene.add(rim);
 
-  function buildFallbackRover() {
-    const g = new THREE.Group();
-    const body = new THREE.MeshStandardMaterial({ color: 0xcdb4f6, metalness: 0.25, roughness: 0.45, emissive: 0x6d28d9, emissiveIntensity: 0.18 });
-    const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 1.5), body);
-    chassis.position.y = 0.45; g.add(chassis);
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x8f7bb8, roughness: 0.85 });
-    for (const [sx, sz] of [[-0.62, -0.5], [0.62, -0.5], [-0.62, 0.5], [0.62, 0.5]]) {
-      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.16, 18), wheelMat);
-      w.rotation.z = Math.PI / 2; w.position.set(sx, 0.22, sz); g.add(w);
-    }
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.42, 0.5), body);
-    head.position.set(0, 0.95, 0.45); g.add(head);
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1a1030, emissive: 0x9ff3ff, emissiveIntensity: 2.6 });
-    for (const ex of [-0.17, 0.17]) {
-      const eye = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.06, 20), eyeMat);
-      eye.rotation.x = Math.PI / 2; eye.position.set(ex, 0.95, 0.71); g.add(eye);
-    }
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5), body);
-    mast.position.set(0, 1.35, -0.3); g.add(mast);
-    const lidar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.08, 20),
-      new THREE.MeshStandardMaterial({ color: 0x241b3a, emissive: 0x34d399, emissiveIntensity: 0.8 }));
-    lidar.position.set(0, 1.62, -0.3); g.add(lidar);
-    const glow = new THREE.PointLight(0xc4b5fd, 0.9, 6); glow.position.set(0, 1.1, 0); g.add(glow);
-    return g;
-  }
-
   const rover = new THREE.Group();
   scene.add(rover);
-  rover.add(buildFallbackRover());
+  rover.add(buildMecanumRover(THREE));
   new GLTFLoader().load('models/rover.glb',
     gltf => {
       rover.clear();
@@ -59,7 +34,7 @@ try {
       m.scale.setScalar(s); m.position.y = -box.min.y * s;
       rover.add(m);
     },
-    undefined, () => console.info('[bg3d] no models/rover.glb - fallback rover active'));
+    undefined, () => console.info('[bg3d] no models/rover.glb - mecanum fallback rover active'));
 
   // lavender trail ribbon
   const TRAIL_MAX = 400;
@@ -111,7 +86,7 @@ try {
   }
 
   const target = { x: 0, y: 0, th: 0 };
-  let live = false, idleT = 0;
+  let live = false, idleT = 0, prevBg = null;
   window.ROBIE_BG3D = {
     setPose(x, y, th) { target.x = x; target.y = y; target.th = th; live = true; pushTrail(x, -y); },
     setWaypoint(x, y) { beacon.position.set(x, 0, -y); beacon.visible = true; },
@@ -138,6 +113,11 @@ try {
       rover.rotation.y = Math.atan2(Math.cos(idleT) * 3.2, -Math.cos(idleT * 2) * 3.6);
       pushTrail(rover.position.x, rover.position.z);
     }
+    if (prevBg && rover.userData.wheels) {
+      const d = Math.hypot(rover.position.x - prevBg.x, rover.position.z - prevBg.z);
+      for (const w of rover.userData.wheels) w.rotation.x += d / 0.26;
+    }
+    prevBg = { x: rover.position.x, z: rover.position.z };
     const now = performance.now();
     if (beacon.visible) { const s = 1 + Math.sin(now / 300) * 0.15; bRing.scale.set(s, s, 1); }
     for (let i = pulses.length - 1; i >= 0; i--) {

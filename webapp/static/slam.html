@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R.O.B.I.E. — SLAM Map</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<style>
+  body { overflow: hidden; }
+  #slam3d { position: fixed; inset: 0; z-index: 0; }
+  .hud { position: fixed; z-index: 5; display: flex; gap: 8px; align-items: center; }
+  .hud.tl { top: 14px; left: 14px; }
+  .hud.tr { top: 14px; right: 14px; }
+  .hud.bl { bottom: 14px; left: 14px; flex-direction: column; align-items: flex-start; }
+  .hud.br { bottom: 14px; right: 14px; }
+  .glass { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: 14px; padding: 8px 14px; backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.2); font-size: 12px; font-weight: 700; color: var(--text); }
+  .glass b { color: var(--lav); }
+  .hbtn { cursor: pointer; font-weight: 800; letter-spacing: 0.06em; }
+  .hbtn:hover { background: rgba(205,180,246,0.2); }
+  .hbtn.active { background: var(--danger); color: #1a0505; }
+</style>
+</head>
+<body>
+<canvas id="slam3d"></canvas>
+<div class="hud tl">
+  <div class="glass"><b>R.O.B.I.E.</b> SLAM MAP</div>
+  <div class="glass"><span id="connDot" class="dot"></span> <span id="connText">offline</span></div>
+  <a class="glass navlink" href="index.html">⌂ DASHBOARD</a>
+</div>
+<div class="hud tr">
+  <button id="btnView" class="glass hbtn">◱ TOP VIEW</button>
+  <button id="btnAuto" class="glass hbtn">▶ AUTO</button>
+  <button id="btnStop" class="glass hbtn">⬛ STOP</button>
+  <button id="btnEstop" class="glass hbtn">⏻ E-STOP <span id="estopState">CLEAR</span></button>
+</div>
+<div class="hud bl">
+  <div class="glass">POSE <b id="hudPose">—</b></div>
+  <div class="glass">TARGET <b id="hudTarget">—</b> · <b id="hudDist">—</b></div>
+  <div class="glass" id="hudScans">0 scans · 0 wall cells</div>
+</div>
+<div class="hud br"><div class="glass">click the floor to set a navigation target</div></div>
+<script type="module" src="slam.js"></script>
+</body>
+</html>

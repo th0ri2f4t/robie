@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""R.O.B.I.E. Mission Control server (FastAPI) v2.
-Static dashboard + /ws telemetry with command support.
-Source MOCK: patrol / goto / manual modes, plume events, battery drain.
-Commands (client->server): W,x,y | E,0|1 | D,vx,vy,wz | A,1
+"""R.O.B.I.E. Mission Control server (FastAPI) v3.
+Dashboard + SLAM page + /ws telemetry with commands and mock LiDAR.
+Source MOCK: patrol/goto/manual modes, plume events, battery, 360-deg scans.
+Commands: W,x,y | E,0|1 | D,vx,vy,wz | A,1
+Scan line: Z,<base64 of 360 uint8 ranges in decimetres>
 """
 import asyncio
+import base64
 import math
 import random
 import time
@@ -13,8 +15,36 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="R.O.B.I.E. Mission Control")
 
+ENV = [
+    (-4.0, -3.0, 4.0, -3.0),
+    (4.0, -3.0, 4.0, 3.0),
+    (4.0, 3.0, -4.0, 3.0),
+    (-4.0, 3.0, -4.0, -3.0),
+    (0.8, -1.2, 0.8, 0.6),
+    (-2.2, 0.8, -1.2, 0.8),
+    (-1.2, 0.8, -1.2, 1.8),
+    (-1.2, 1.8, -2.2, 1.8),
+    (-2.2, 1.8, -2.2, 0.8),
+]
+
 def randn():
     return (random.random() + random.random() + random.random() - 1.5) * 1.6
+
+def ray_range(x, y, ang):
+    dx = math.cos(ang)
+    dy = math.sin(ang)
+    best = 8.0
+    for (x1, y1, x2, y2) in ENV:
+        sx = x2 - x1
+        sy = y2 - y1
+        den = dx * sy - dy * sx
+        if abs(den) < 1e-9:
+            continue
+        t = ((x1 - x) * sy - (y1 - y) * sx) / den
+        s = ((x1 - x) * dy - (y1 - y) * dx) / den
+        if t > 0.02 and 0.0 <= s <= 1.0 and t < best:
+            best = t
+    return best
 
 class MockWorld:
     def __init__(self):
@@ -30,6 +60,7 @@ class MockWorld:
         self.target = (0.0, 0.0)
         self.vel = (0.0, 0.0, 0.0)
         self.resume_patrol = False
+        self.scan_ctr = 0
     def command(self, msg):
         p = msg.split(",")
         if p[0] == "W" and len(p) == 3:
@@ -85,6 +116,14 @@ class MockWorld:
             "H,%d" % int(t * 1000),
             "G,%d,%d" % (g4, g6),
             ]
+        self.scan_ctr += 1
+        if self.scan_ctr % 4 == 0:
+            ranges = []
+            for a in range(360):
+                r = ray_range(self.x, self.y, self.th + a * math.pi / 180.0)
+                r += (random.random() - 0.5) * 0.06
+                ranges.append(max(1, min(80, int(r * 10))))
+            lines.append("Z," + base64.b64encode(bytes(ranges)).decode())
         if self.leak and random.random() < 0.15:
             lines.append("L,%.2f,%.2f,%.2f" % (0.5 + random.random() * 0.5, self.x, self.y))
         if random.random() < 0.003:
