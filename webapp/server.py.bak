@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+"""R.O.B.I.E. Mission Control server (FastAPI).
+Serves the static dashboard and a /ws telemetry stream.
+Source MOCK: simulated patrol, plume events, battery drain.
+"""
+import asyncio
+import math
+import random
+import time
+from fastapi import FastAPI, WebSocket
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI(title="R.O.B.I.E. Mission Control")
+
+def randn():
+|return (random.random() + random.random() + random.random() - 1.5) * 1.6
+
+class MockWorld:
+|def __init__(self):
+||self.t0 = time.time()
+||self.batt = 12.6
+||self.leak = False
+||self.leak_until = 0.0
+|def step(self):
+||t = time.time() - self.t0
+||th = t * 0.35
+||x = 2.0 * math.cos(th)
+||y = 2.0 * math.sin(th)
+||self.batt = max(10.5, self.batt - 0.0004)
+||if not self.leak and random.random() < 0.004:
+|||self.leak = True
+|||self.leak_until = t + 6.0
+||if self.leak and t > self.leak_until:
+|||self.leak = False
+||spike = 2200.0 if self.leak else 0.0
+||g4 = int(800 + randn() * 40 + spike * (0.7 + random.random() * 0.3))
+||g6 = int(650 + randn() * 35 + spike * (0.3 + random.random() * 0.3))
+||bf = 1 if random.random() < 0.015 else 0
+||lines = [
+|||"P,%.2f,%.2f,%.2f" % (x, y, th),
+|||"T,0,%d,0" % bf,
+|||"B,%.2f" % self.batt,
+|||"H,%d" % int(t * 1000),
+|||"G,%d,%d" % (g4, g6),
+|||]
+||if self.leak and random.random() < 0.15:
+|||lines.append("L,%.2f,%.2f,%.2f" % (0.5 + random.random() * 0.5, x, y))
+||if random.random() < 0.003:
+|||lines.append("C,%.2f,%.2f,%.2f" % (0.6 + random.random() * 0.39, x, y))
+||return lines
+
+@app.websocket("/ws")
+async def ws(sock: WebSocket):
+|await sock.accept()
+|world = MockWorld()
+|try:
+||while True:
+|||for line in world.step():
+||||await sock.send_text(line)
+|||await asyncio.sleep(0.1)
+|except Exception:
+||pass
+
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
