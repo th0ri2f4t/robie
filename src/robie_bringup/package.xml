@@ -3,7 +3,7 @@
   <name>robie_bringup</name>
   <version>0.1.0</version>
   <description>R.O.B.I.E. bringup: safety bridge and web bridge</description>
-  <maintainer email="th0r12f4t@local">th0r12f4t</maintainer>
+  <maintainer email="th0r12f4t@users.noreply.github.com">th0r12f4t</maintainer>
   <license>MIT</license>
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
