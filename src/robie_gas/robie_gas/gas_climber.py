@@ -1,9 +1,10 @@
 import csv, math, os, time, sys
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64
+from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from robie_msgs.msg import GasReading
 
 class GasClimber(Node):
     PATROL, DRIVE, TURN, HOME, LOCALISED = range(5)
@@ -11,12 +12,14 @@ class GasClimber(Node):
 
     def __init__(self):
         super().__init__('gas_climber')
-        self.create_subscription(Float64, '/gas/raw', self.gas_cb, 10)
+        self.create_subscription(GasReading, '/robie/gas', self.gas_cb, 10)
         self.create_subscription(Odometry, '/odom', self.odom_cb, 10)
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.event_pub = self.create_publisher(String, '/robie/event', 10)
         self.create_timer(0.1, self.tick)
 
         self.declare_parameter('threshold', 150.0)
+        self.declare_parameter('exit_threshold', 100.0)  # Hysteresis: must drop below this to abort
         self.declare_parameter('drive_speed', 0.25)
         self.declare_parameter('step_time', 2.0)
         self.declare_parameter('margin', 5.0)
@@ -25,7 +28,7 @@ class GasClimber(Node):
         self.declare_parameter('timeout_s', 90.0)
         self.declare_parameter('ema_alpha', 0.2)
         self.declare_parameter('home_dist', 0.15)
-        self.declare_parameter('max_run_s', 0.0)  # 0.0 = infinite (manual), >0 = batch mode
+        self.declare_parameter('max_run_s', 0.0)
         self.declare_parameter('log_file', '')
 
         log_path = self.get_parameter('log_file').value
@@ -55,10 +58,10 @@ class GasClimber(Node):
         self.hold_until = 0.0
         self.climb_start = 0.0
         self.start_time = time.time()
-        self.get_logger().info('GasClimber ready, state=PATROL')
+        self.get_logger().info('GasClimber ready (v3 audit pass), state=PATROL')
 
     def gas_cb(self, msg):
-        self.raw = msg.data
+        self.raw = msg.filtered if msg.filtered > 0 else msg.raw
         a = self.get_parameter('ema_alpha').value
         self.ema += a * (self.raw - self.ema)
         self.log()
@@ -97,15 +100,15 @@ class GasClimber(Node):
     def tick(self):
         now = time.time()
         th = self.get_parameter('threshold').value
+        exit_th = self.get_parameter('exit_threshold').value
         max_run = self.get_parameter('max_run_s').value
 
-        # BULLETPROOF SHUTDOWN: If max_run > 0 and we've been patrolling too long, die.
         if max_run > 0.0 and self.state == self.PATROL and (now - self.start_time) > max_run:
             self.get_logger().info('Max run time reached in PATROL, exiting')
             raise SystemExit(0)
 
         if self.state == self.PATROL:
-            if not self.armed and self.ema < th * 0.5:
+            if not self.armed and self.ema < exit_th:
                 self.armed = True
             cmd = Twist(); cmd.linear.x = 0.15
             self.cmd_pub.publish(cmd)
@@ -160,7 +163,6 @@ class GasClimber(Node):
         elif self.state == self.LOCALISED:
             self.stop()
             if now > self.hold_until:
-                # BULLETPROOF SHUTDOWN: If max_run > 0 and we finished localising, die.
                 if max_run > 0.0:
                     self.get_logger().info('Localised and hold complete, exiting')
                     raise SystemExit(0)
@@ -203,6 +205,10 @@ class GasClimber(Node):
     def localise(self):
         self.get_logger().warn('LEAK LOCALISED at x=%.2f y=%.2f peak=%.0f'
                                % (self.x, self.y, self.best_ema))
+        # Publish to web dashboard
+        severity = min(1.0, self.best_ema / 400.0)
+        event_str = 'L,%.2f,%.2f,%.2f' % (severity, self.x, self.y)
+        self.event_pub.publish(String(data=event_str))
         self.hold_until = time.time() + 5.0
         self.set_state(self.LOCALISED)
 
@@ -212,9 +218,12 @@ def main(args=None):
     try:
         rclpy.spin(node)
     except SystemExit:
-        pass  # Clean exit triggered by our max_run_s logic
+        pass
     finally:
         node.csv.close()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()

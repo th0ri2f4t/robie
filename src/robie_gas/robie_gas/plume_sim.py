@@ -1,17 +1,17 @@
 import math, random
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64
+from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-
+from robie_msgs.msg import GasReading
 
 class PlumeSim(Node):
     def __init__(self):
         super().__init__('plume_sim')
         self.create_subscription(Twist, '/cmd_vel', self.cmd_cb, 10)
         self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
-        self.gas_pub = self.create_publisher(Float64, '/gas/raw', 10)
+        self.gas_pub = self.create_publisher(GasReading, '/robie/gas', 10)
         self.create_timer(0.1, self.step)
 
         self.declare_parameter('leak_x', 1.5)
@@ -54,12 +54,24 @@ class PlumeSim(Node):
         d2 = (self.x - self.leak_x) ** 2 + (self.y - self.leak_y) ** 2
         reading = self.peak * math.exp(-d2 / (2 * self.sigma * self.sigma))
         reading = max(0.0, reading + random.gauss(0, self.noise_sigma))
-        self.gas_pub.publish(Float64(data=reading))
-
+        
+        msg = GasReading()
+        msg.header.stamp = now.to_msg()
+        msg.raw = reading
+        msg.filtered = reading
+        msg.pump_on = True
+        self.gas_pub.publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)
     node = PlumeSim()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()

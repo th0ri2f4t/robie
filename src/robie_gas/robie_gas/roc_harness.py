@@ -1,6 +1,6 @@
 import subprocess, time, os, itertools
 
-THRESHOLDS = [50]
+THRESHOLDS = [50, 100, 150, 200, 250, 300]  # Expanded for actual ROC curve
 NOISE_LEVELS = [0, 2, 4, 8, 16]
 REPEATS = 3
 TIMEOUT = 100
@@ -16,8 +16,8 @@ def run_single(threshold, noise_sigma, leak_present, run_id):
 
     climber_cmd = ['ros2', 'run', 'robie_gas', 'gas_climber', '--ros-args',
                    '-p', 'threshold:=%f' % threshold,
+                   '-p', 'exit_threshold:=%f' % (threshold * 0.6),  # Hysteresis
                    '-p', 'log_file:=%s' % log_file,
-                   '-p', 'auto_shutdown:=true',
                    '-p', 'max_run_s:=60.0',
                    '-p', 'timeout_s:=90.0']
 
@@ -39,7 +39,7 @@ def run_single(threshold, noise_sigma, leak_present, run_id):
 def main():
     run_id = 0
     total = len(THRESHOLDS) * len(NOISE_LEVELS) * 2 * REPEATS
-    print('Starting corrected ROC batch: %d runs' % total)
+    print('Starting ROC batch: %d runs' % total)
     for threshold, noise in itertools.product(THRESHOLDS, NOISE_LEVELS):
         for leak_present in [True, False]:
             for _ in range(REPEATS):
@@ -47,7 +47,7 @@ def main():
                 outcome = run_single(threshold, noise, leak_present, run_id)
                 print('[%d/%d] thresh=%d noise=%d leak=%s -> %s'
                       % (run_id, total, threshold, noise, leak_present, outcome))
-    print('Batch complete. Now run: python3 ~/robie_ws/parse_roc.py')
+    print('Batch complete. Logs in ~/robie_ws/logs/roc/')
 
 if __name__ == '__main__':
     main()
