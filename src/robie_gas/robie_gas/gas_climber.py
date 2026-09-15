@@ -76,6 +76,7 @@ class GasClimber(Node):
         self.writer.writerow([round(time.time(), 3), self.NAMES[self.state],
                               round(self.x, 3), round(self.y, 3), round(self.yaw, 3),
                               round(self.raw, 1), round(self.ema, 1)])
+        self.csv.flush()
 
     def set_state(self, s):
         self.get_logger().warn('%s -> %s' % (self.NAMES[self.state], self.NAMES[s]))
