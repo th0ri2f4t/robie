@@ -1,6 +1,35 @@
-install/
+# Build artifacts
 build/
+install/
 log/
-logs/
-*.pyc
+
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# Captures and logs (from picam-control)
+captures/
+logs/
+*.jpg
+*.mp4
+*.png
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keys and secrets
+*.pem
+*.key
+.env
