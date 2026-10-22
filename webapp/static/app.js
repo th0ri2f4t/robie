@@ -192,6 +192,9 @@ function handlePacket(msg) {
     case 'C': addEvent('CRACK', p[1], p[2], p[3]);
       if (window.ROBIE_BG3D) window.ROBIE_BG3D.pulse('crack', +p[2], +p[3]);
       toast('crack', `Pipe crack detected — confidence ${(p[1] * 100).toFixed(0)}% at (${p[2]}, ${p[3]})`); break;
+    case 'Z':
+      if (window.ROBIE_BG3D) window.ROBIE_BG3D.scanData(p[1]);
+      break;
   }
 }
 

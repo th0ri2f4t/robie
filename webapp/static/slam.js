@@ -92,7 +92,7 @@ try {
     const p = msg.split(',');
     if (p[0] === 'P') { pose = { x: +p[1], y: +p[2], th: +p[3] }; hasPose = true; }
     else if (p[0] === 'T') { estop = p[1] === '1'; $('estopState').textContent = estop ? 'ENGAGED' : 'CLEAR'; }
-    else if (p[0] === 'Z') { scans++; integrate(p[1]); }
+    else if (p[0] === 'Z') { scans++; integrate(p[1]); if (window.ROBIE_BG3D) window.ROBIE_BG3D.scanData(p[1]); }
   }
   function integrate(b64) {
     const bin = atob(b64);
@@ -183,7 +183,7 @@ try {
       prev = { x: pose.x, y: pose.y };
       rover.position.x += (pose.x - rover.position.x) * Math.min(1, dt * 6);
       rover.position.z += (-pose.y - rover.position.z) * Math.min(1, dt * 6);
-      rover.rotation.y += (pose.th - rover.rotation.y) * Math.min(1, dt * 6);
+      rover.rotation.y += ((pose.th + Math.PI/2) - rover.rotation.y) * Math.min(1, dt * 6);
       $('hudPose').textContent = `x ${pose.x.toFixed(2)} · y ${pose.y.toFixed(2)} · θ ${(pose.th * 57.3).toFixed(0)}°`;
       if (target) {
         linkLine.geometry.setFromPoints([
@@ -196,7 +196,7 @@ try {
     const now = performance.now();
     if (beacon.visible) { const s = 1 + Math.sin(now / 300) * 0.15; bRing.scale.set(s, s, 1); }
     if (viewMode === 'chase') {
-      const fx = Math.sin(rover.rotation.y), fz = Math.cos(rover.rotation.y);
+      const fx = Math.cos(rover.rotation.y), fz = Math.sin(rover.rotation.y);
       camTarget.set(rover.position.x - fx * 4.2, 2.6, rover.position.z - fz * 4.2);
       camera.position.lerp(camTarget, 0.08);
       camera.lookAt(rover.position.x, 0.6, rover.position.z);
