@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>R.O.B.I.E. mission control</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23F2B705'/%3E%3Crect x='3' y='6' width='10' height='5' fill='%23182028'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script type="importmap">
+    { "imports": {
+        "three": "/static/vendor/three/three.module.js",
+        "three/addons/": "/static/vendor/three/addons/"
+    } }
+  </script>
+</head>
+<body data-mode="auto">
+  <header class="bar">
+    <div class="ident">
+      <svg class="mark" viewBox="0 0 40 24" aria-hidden="true"><path d="M4 9 L9 4 H31 L36 9 V18 H4 Z" fill="#F2B705"/><path d="M8 9 L11 6 H29 L32 9 Z" fill="#182028"/><circle cx="10" cy="20" r="3.4" fill="#2BB673"/><circle cx="30" cy="20" r="3.4" fill="#2BB673"/></svg>
+      <div>
+        <h1>R.O.B.I.E.</h1>
+        <p class="sub">Flow station inspection</p>
+      </div>
+    </div>
+
+    <ul class="links" aria-label="Connections">
+      <li data-link="ros" data-state="wait"><span class="dot"></span><span class="txt">Connecting to ROS…</span></li>
+      <li data-link="safety" data-state="wait"><span class="dot"></span><span class="txt">Checking safety node…</span></li>
+      <li data-link="cam" data-state="wait"><span class="dot"></span><span class="txt">Starting camera…</span></li>
+      <li><button id="reconnect" class="btn-quiet" hidden>Reconnect to ROS</button></li>
+    </ul>
+
+    <div class="mode" role="group" aria-label="Driving mode">
+      <button data-set-mode="auto" aria-pressed="true">Autonomous</button>
+      <button data-set-mode="manual" aria-pressed="false">Manual</button>
+    </div>
+  </header>
+
+  <main class="deck">
+    <section class="panel map" aria-labelledby="map-h">
+      <div class="panel-head">
+        <h2 id="map-h">Map</h2>
+        <span id="map-meta" class="meta"></span>
+        <label class="check"><input type="checkbox" id="map-follow"> Follow robot</label>
+        <button id="map-fit" class="btn-quiet">Fit map</button>
+      </div>
+      <div class="map-stage">
+        <canvas id="map-canvas" aria-label="SLAM map"></canvas>
+        <div id="map-empty" class="empty">Waiting for the map. Start SLAM Toolbox and drive a little to build one.</div>
+      </div>
+      <div class="panel-foot">
+        <span id="map-hint"></span>
+        <span id="pose-readout" class="num"></span>
+        <span id="pose-age" class="pill" data-state="bad">No pose yet</span>
+      </div>
+    </section>
+
+    <section class="panel camera" aria-labelledby="cam-h">
+      <div class="panel-head"><h2 id="cam-h">Camera</h2><span class="meta">YOLO crack detection</span></div>
+      <div class="cam-stage">
+        <img id="camera" alt="Live camera feed with crack detections">
+        <div id="crack-overlay" hidden><span class="mark" hidden></span><span class="label"></span></div>
+        <div id="cam-empty" class="empty">Camera stream not reachable on port 8081. Retrying every 3 s.</div>
+      </div>
+    </section>
+
+    <section class="panel model" aria-labelledby="cad-h">
+      <div class="panel-head">
+        <h2 id="cad-h">Robot on map</h2>
+        <label class="check"><input type="checkbox" id="cad-follow" checked> Follow</label>
+      </div>
+      <div id="cad-view" class="cad-stage"></div>
+      <div class="panel-foot"><span id="cad-note">Loading model…</span></div>
+    </section>
+
+    <aside class="side">
+      <section class="panel stop" aria-labelledby="stop-h">
+        <h2 id="stop-h" class="visually-hidden">Emergency stop</h2>
+        <div class="hazard">
+          <button id="stop-btn" class="stop-btn" aria-describedby="stop-help">Stop</button>
+        </div>
+        <p id="stop-help" class="help">Space or Esc also stops the robot.</p>
+        <button id="reset-btn" class="reset-btn"><span class="fill"></span><span class="lbl">Hold to reset</span></button>
+        <p id="stop-result" class="result" aria-live="assertive"></p>
+      </section>
+
+      <section class="panel" aria-labelledby="safety-h">
+        <div class="panel-head"><h2 id="safety-h">Safety</h2></div>
+        <ul id="safety-list" class="rows"></ul>
+      </section>
+
+      <section class="panel" aria-labelledby="status-h">
+        <div class="panel-head"><h2 id="status-h">Status</h2></div>
+        <dl class="stats">
+          <div><dt>Mode</dt><dd id="mode-state">Autonomous</dd></div>
+          <div><dt>Motors</dt><dd id="motor-state" data-state="unknown">No data</dd></div>
+          <div><dt>Battery</dt><dd id="battery" class="num">No data</dd></div>
+          <div><dt>MQ-4 methane</dt><dd id="gas-mq4" class="num">No data</dd></div>
+          <div><dt>MQ-6 LPG</dt><dd id="gas-mq6" class="num">No data</dd></div>
+        </dl>
+        <p id="gas-age" class="meta">Waiting for readings</p>
+      </section>
+
+      <section id="teleop" class="panel teleop" aria-labelledby="drive-h" hidden>
+        <div class="panel-head"><h2 id="drive-h">Drive</h2><span class="meta">Hold to move</span></div>
+        <div class="pad">
+          <button data-drive="rotl" aria-label="Turn left">⟲</button>
+          <button data-drive="fwd" aria-label="Forward">▲</button>
+          <button data-drive="rotr" aria-label="Turn right">⟳</button>
+          <button data-drive="left" aria-label="Strafe left">◀</button>
+          <button data-drive="back" aria-label="Back">▼</button>
+          <button data-drive="right" aria-label="Strafe right">▶</button>
+        </div>
+        <label class="speed">Speed <input id="speed" type="range" min="0.05" max="0.4" step="0.05" value="0.15"> <span id="speed-val" class="num">0.15 m/s</span></label>
+        <p class="meta">Keys: W/S forward and back, A/D strafe, Q/E or arrows to turn.</p>
+      </section>
+    </aside>
+
+    <section class="panel log" aria-labelledby="log-h">
+      <div class="panel-head">
+        <h2 id="log-h">Events</h2>
+        <span class="legend"><i class="ev-gas"></i>Gas <i class="ev-crack"></i>Crack <i class="ev-safety"></i>Safety <i class="ev-nav"></i>Navigation</span>
+        <button id="log-clear" class="btn-quiet">Clear</button>
+      </div>
+      <ol id="event-log" aria-live="polite"></ol>
+      <p id="log-empty" class="empty-inline">No events yet. Gas readings, crack detections and safety changes appear here.</p>
+    </section>
+  </main>
+
+  <div id="toast" role="status" hidden></div>
+  <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
