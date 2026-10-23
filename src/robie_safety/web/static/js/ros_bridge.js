@@ -14,6 +14,7 @@ export class RosBridge extends EventTarget {
     this.timer = null;
     this.manualClose = false;
     this.state = 'idle';
+    this.pending = new Map();     // service call id -> {resolve, reject, timer}
   }
 
   _setState(s, detail = '') {
@@ -45,6 +46,13 @@ export class RosBridge extends EventTarget {
         for (const id of ids) {
           const s = this.subs.get(id);
           try { s && s.cb(m.msg); } catch (e) { console.error('subscriber error', m.topic, e); }
+        }
+      } else if (m.op === 'service_response') {
+        const p = this.pending.get(m.id);
+        if (p) {
+          clearTimeout(p.timer); this.pending.delete(m.id);
+          if (m.result === false) p.reject(new Error(typeof m.values === 'string' ? m.values : 'service call failed'));
+          else p.resolve(m.values);
         }
       } else if (m.op === 'status' && m.level === 'error') {
         console.warn('rosbridge:', m.msg);
@@ -95,6 +103,16 @@ export class RosBridge extends EventTarget {
       this.byTopic.get(topic)?.delete(id);
       this._send({ op: 'unsubscribe', id: `sub_${id}`, topic });
     };
+  }
+
+  // Call a ROS service through rosbridge. Resolves with the response fields.
+  callService(service, type, args = {}, timeoutMs = 8000) {
+    return new Promise((resolve, reject) => {
+      const id = `call_${this.nextId++}`;
+      if (!this._send({ op: 'call_service', id, service, type, args })) { reject(new Error('ROS is offline')); return; }
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error('no reply from ' + service)); }, timeoutMs);
+      this.pending.set(id, { resolve, reject, timer });
+    });
   }
 
   advertise(topic, type) {

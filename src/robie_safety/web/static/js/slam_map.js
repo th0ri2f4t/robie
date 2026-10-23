@@ -3,10 +3,10 @@
 
 import { yawFromQuaternion } from './ros_bridge.js';
 
-const COLORS = {
-  unknown: [38, 47, 56],
-  free: [196, 206, 214],
-  occupied: [14, 20, 26],
+const COLORS = {        // pastel "liquid-glass DOS" palette
+  unknown: [36, 28, 62],     // deep violet (not yet seen)
+  free: [216, 207, 242],     // pale lavender
+  occupied: [124, 77, 230],  // saturated violet: walls stand out on both
 };
 
 export class SlamMap extends EventTarget {
@@ -20,6 +20,7 @@ export class SlamMap extends EventTarget {
     this.pose = null;           // {x,y,yaw}
     this.goal = null;           // {x,y}
     this.trail = [];
+    this.scanPts = null;        // Float32Array of x,y pairs (map frame) for the live scan overlay
     this.manual = false;
     this.view = { scale: 1, x: 0, y: 0, fitted: false };
     this.followRobot = false;
@@ -76,6 +77,7 @@ export class SlamMap extends EventTarget {
   }
 
   setGoal(goal) { this.goal = goal; this._dirty = true; }
+  setScan(xy) { this.scanPts = xy; this._dirty = true; }
   setManual(on) { this.manual = on; this.canvas.classList.toggle('is-manual', on); }
 
   // ---------- coordinate transforms ----------
@@ -187,16 +189,24 @@ export class SlamMap extends EventTarget {
     this._drawScale(ctx, W, H);
 
     if (this.trail.length > 1) {
-      ctx.strokeStyle = 'rgba(242, 183, 5, 0.55)'; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.strokeStyle = 'rgba(232, 176, 40, 0.9)'; ctx.lineWidth = 2; ctx.beginPath();
       this.trail.forEach((p, k) => {
         const { gx, gy } = this.worldToImage(p.x, p.y); const { cx, cy } = this.imageToCanvas(gx, gy);
         k ? ctx.lineTo(cx, cy) : ctx.moveTo(cx, cy);
       });
       ctx.stroke();
     }
+    if (this.scanPts) {
+      ctx.fillStyle = 'rgba(255, 159, 216, 0.95)';
+      const s = Math.max(2, Math.min(4, this.view.scale * 0.6));
+      for (let k = 0; k < this.scanPts.length; k += 2) {
+        const g = this.worldToImage(this.scanPts[k], this.scanPts[k + 1]), c = this.imageToCanvas(g.gx, g.gy);
+        ctx.fillRect(c.cx - s / 2, c.cy - s / 2, s, s);
+      }
+    }
     if (this.goal) {
       const { gx, gy } = this.worldToImage(this.goal.x, this.goal.y); const { cx, cy } = this.imageToCanvas(gx, gy);
-      ctx.strokeStyle = '#2BB673'; ctx.fillStyle = 'rgba(43,182,115,0.25)'; ctx.lineWidth = 2;
+      ctx.strokeStyle = '#3fbf8f'; ctx.fillStyle = 'rgba(159,240,208,0.35)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(cx - 15, cy); ctx.lineTo(cx + 15, cy); ctx.moveTo(cx, cy - 15); ctx.lineTo(cx, cy + 15); ctx.stroke();
       if (this.pose) {
@@ -210,10 +220,10 @@ export class SlamMap extends EventTarget {
       // footprint: 0.266 x 0.196 m shell
       const L = 0.266 / this.info.resolution * this.view.scale, Wd = 0.196 / this.info.resolution * this.view.scale;
       ctx.save(); ctx.translate(cx, cy); ctx.rotate(yawScreen);
-      ctx.fillStyle = 'rgba(242, 183, 5, 0.35)'; ctx.strokeStyle = '#F2B705'; ctx.lineWidth = 1.5;
+      ctx.fillStyle = 'rgba(255, 120, 200, 0.45)'; ctx.strokeStyle = '#d63f97'; ctx.lineWidth = 1.5;
       ctx.fillRect(-L / 2, -Wd / 2, L, Wd); ctx.strokeRect(-L / 2, -Wd / 2, L, Wd);
       const a = Math.max(12, L * 0.6);
-      ctx.fillStyle = '#F2B705'; ctx.beginPath(); ctx.moveTo(a, 0); ctx.lineTo(-a * 0.45, a * 0.45); ctx.lineTo(-a * 0.2, 0); ctx.lineTo(-a * 0.45, -a * 0.45); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#d63f97'; ctx.beginPath(); ctx.moveTo(a, 0); ctx.lineTo(-a * 0.45, a * 0.45); ctx.lineTo(-a * 0.2, 0); ctx.lineTo(-a * 0.45, -a * 0.45); ctx.closePath(); ctx.fill();
       ctx.restore();
     }
   }
@@ -223,10 +233,10 @@ export class SlamMap extends EventTarget {
     const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50];
     const m = steps.find((s) => s * pxPerM > 70) || 50;
     const len = m * pxPerM;
-    ctx.fillStyle = 'rgba(16,22,28,0.75)'; ctx.fillRect(10, H - 34, len + 20, 24);
-    ctx.strokeStyle = '#C9D2DA'; ctx.lineWidth = 2;
+    ctx.fillStyle = 'rgba(27,18,54,0.8)'; ctx.fillRect(10, H - 34, len + 20, 24);
+    ctx.strokeStyle = '#e3d7ff'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(20, H - 18); ctx.lineTo(20 + len, H - 18); ctx.moveTo(20, H - 23); ctx.lineTo(20, H - 13); ctx.moveTo(20 + len, H - 23); ctx.lineTo(20 + len, H - 13); ctx.stroke();
-    ctx.fillStyle = '#C9D2DA'; ctx.font = '12px var(--font-ui, sans-serif)';
+    ctx.fillStyle = '#e3d7ff'; ctx.font = '16px DOS, monospace';
     ctx.fillText(m >= 1 ? `${m} m` : `${m * 100} cm`, 26 + len / 2 - 12, H - 22);
   }
 }

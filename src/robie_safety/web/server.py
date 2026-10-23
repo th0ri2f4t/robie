@@ -74,6 +74,11 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/explore")
+def explore():
+    return render_template("explore.html")
+
+
 @app.route("/api/estop", methods=["POST"])
 def estop():
     return _post_safety("/estop")

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>R.O.B.I.E. 3D + SLAM</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23C9B6FF'/%3E%3Crect x='3' y='6' width='10' height='5' fill='%231B1236'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script type="importmap">
+    { "imports": { "three": "/static/vendor/three/three.module.js", "three/addons/": "/static/vendor/three/addons/" } }
+  </script>
+</head>
+<body class="explore" data-layout="split">
+  <header class="bar">
+    <a class="back btn-quiet" href="/" title="Back to the dashboard">◄ Dashboard</a>
+    <div class="ident"><div>
+      <h1>R.O.B.I.E. 3D</h1>
+      <p class="sub">C:\ROBIE&gt; explore3d.exe /lidar /slam<span class="cursor" aria-hidden="true"></span></p>
+    </div></div>
+    <div class="layout-switch" role="group" aria-label="Layout">
+      <button data-layout="3d" aria-pressed="false">3D</button>
+      <button data-layout="split" aria-pressed="true">Split</button>
+      <button data-layout="map" aria-pressed="false">Map</button>
+    </div>
+    <ul class="links" aria-label="Connections">
+      <li data-link="ros" data-state="wait"><span class="dot"></span><span class="txt">Connecting to ROS…</span></li>
+      <li data-link="lidar" data-state="wait"><span class="dot"></span><span class="txt">Waiting for lidar…</span></li>
+      <li><button id="reconnect" class="btn-quiet" hidden>Reconnect</button></li>
+    </ul>
+    <div class="stop-mini">
+      <button id="reset-btn" class="reset-btn small"><span class="fill"></span><span class="lbl">Hold to reset</span></button>
+      <button id="stop-btn" class="stop-pill" title="Space or Esc also stops the robot">STOP</button>
+    </div>
+  </header>
+
+  <main class="explore-deck">
+    <div class="view-area">
+      <section class="panel view3d-pane" aria-labelledby="v3d-h">
+        <div class="panel-head"><h2 id="v3d-h">Lidar 3D</h2><span class="meta">walls = what the lidar has seen</span></div>
+        <div id="view" class="view3d">
+          <div class="overlay bl">
+            <div id="pose" class="num">No pose yet</div>
+            <div id="goal">No goal</div>
+            <div><span id="hit-count">0 wall cells</span> · <span id="tf-mode">Waiting for scans</span></div>
+          </div>
+          <p id="stop-result" class="overlay tc" aria-live="assertive"></p>
+        </div>
+      </section>
+      <section class="panel slam-pane" aria-labelledby="slam-h">
+        <div class="panel-head">
+          <h2 id="slam-h">SLAM map</h2>
+          <span id="map-meta" class="meta"></span>
+          <label class="check"><input type="checkbox" id="slam-follow"> Follow</label>
+          <button id="slam-fit" class="btn-quiet">Fit</button>
+        </div>
+        <div class="map-stage">
+          <canvas id="slam-canvas" aria-label="2D SLAM map"></canvas>
+          <div id="map-empty" class="empty">Waiting for the SLAM map…</div>
+        </div>
+        <div class="panel-foot"><span id="slam-hint">Drag to pan, scroll to zoom.</span></div>
+      </section>
+    </div>
+
+    <aside class="explore-side">
+      <section class="panel">
+        <div class="panel-head"><h2>Click to move</h2></div>
+        <label class="switch"><input type="checkbox" id="click-move"><span>Send goals by clicking</span></label>
+        <p id="click-hint" class="meta"></p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Save map</h2></div>
+        <div class="box-pad layers">
+          <label class="speed">Name <input id="map-name" type="text" value="robie_map" spellcheck="false"></label>
+          <button id="save-map" class="btn-quiet">Save SLAM map</button>
+          <p id="save-result" class="meta" aria-live="polite">Saves through SLAM Toolbox (.pgm + .yaml) on the robot.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Layers</h2></div>
+        <div class="box-pad layers">
+          <label class="check"><input type="checkbox" id="show-hits" checked> Lidar walls (reconstruction)</label>
+          <label class="check"><input type="checkbox" id="show-walls" checked> SLAM map walls</label>
+          <label class="check"><input type="checkbox" id="show-scan" checked> Live scan</label>
+          <label class="check"><input type="checkbox" id="show-trail" checked> Robot trail</label>
+          <label class="speed">Wall height <input id="wall-h" type="range" min="0.2" max="1.5" step="0.1" value="0.6"> <span id="wall-h-val" class="num">0.6 m</span></label>
+          <button id="clear-hits" class="btn-quiet">Clear lidar walls</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Camera</h2></div>
+        <div class="box-pad layers">
+          <label class="check"><input type="checkbox" id="follow" checked> Follow robot</label>
+          <div class="btn-row"><button id="top-view" class="btn-quiet">Top</button><button id="reset-view" class="btn-quiet">Reset</button></div>
+          <p class="meta">Drag to orbit, right-drag to pan, scroll to zoom.</p>
+          <p id="model-note" class="meta"></p>
+        </div>
+      </section>
+    </aside>
+  </main>
+  <div id="toast" role="status" hidden></div>
+  <script type="module" src="{{ url_for('static', filename='js/explore.js') }}"></script>
+</body>
+</html>

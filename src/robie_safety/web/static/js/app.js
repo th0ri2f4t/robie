@@ -1,29 +1,7 @@
-import { RosBridge, yawFromQuaternion, quaternionFromYaw, nowStamp } from './ros_bridge.js';
+import { RosBridge, yawFromQuaternion } from './ros_bridge.js';
+import { CONFIG, sendStop, sendReset, publishGoal, holdButton } from './common.js';
 import { SlamMap } from './slam_map.js';
 import { CadViewer } from './cad_viewer.js';
-
-// ---------------------------------------------------------------------------
-// Configuration. The host is whatever address the page was opened from, so the
-// same build works on ROBIE-NET (192.168.4.1) and on home Wi-Fi (th0r12f4t.local).
-// ---------------------------------------------------------------------------
-const HOST = location.hostname || '192.168.4.1';
-const CONFIG = {
-  rosbridgeUrl: `ws://${HOST}:9090`,
-  safetyUrl: `http://${HOST}:8082`,          // safety_node: POST /estop, POST /reset
-  cameraUrl: `http://${HOST}:8081/stream`,
-  topics: {
-    event:   ['/robie/event', 'std_msgs/msg/String'],
-    safety:  ['/safety_state', 'std_msgs/msg/String'],
-    map:     ['/map', 'nav_msgs/msg/OccupancyGrid'],
-    pose:    ['/robot_pose', 'geometry_msgs/msg/PoseStamped'],
-    motor:   ['/motor_enable', 'std_msgs/msg/Bool'],
-    battery: ['/robie/battery', 'std_msgs/msg/Float32'],   // optional; shows "No data" if absent
-    cmdVel:  ['/cmd_vel', 'geometry_msgs/msg/Twist'],
-    goal:    ['/move_goal', 'geometry_msgs/msg/PoseStamped'], // Nav2's default is /goal_pose
-  },
-  teleopHz: 10,
-  maxEvents: 50,
-};
 
 const $ = (s) => document.querySelector(s);
 const state = { mode: 'auto', motor: null, safety: {}, lastPoseAt: 0, lastMapAt: 0, gas: {}, stopLatched: false };
@@ -65,16 +43,15 @@ ros.subscribe(...CONFIG.topics.pose, (msg) => {
 
 slam.addEventListener('goal', (e) => {
   const g = e.detail;
-  const from = slam.pose;
-  const yaw = from ? Math.atan2(g.y - from.y, g.x - from.x) : 0;
-  const ok = ros.publish(...CONFIG.topics.goal, {
-    header: { stamp: nowStamp(), frame_id: 'map' },
-    pose: { position: { x: g.x, y: g.y, z: 0 }, orientation: quaternionFromYaw(yaw) },
-  });
-  if (!ok) { toast('Goal not sent: ROS is offline.', 'bad'); return; }
+  if (!publishGoal(ros, g.x, g.y, slam.pose)) { toast('Goal not sent: ROS is offline.', 'bad'); return; }
   slam.setGoal(g);
   logEvent('nav', `Goal sent to x ${g.x.toFixed(2)}, y ${g.y.toFixed(2)} m${g.unknown ? ' (unexplored area)' : ''}`);
 });
+// Show goals from anywhere (this page, the 3D view, RViz): the goal topic is the single source of truth.
+ros.subscribe(...CONFIG.topics.goal, (msg) => {
+  const p = msg.pose.position;
+  slam.setGoal({ x: p.x, y: p.y });
+}, { queue_length: 1 });
 slam.addEventListener('rejected', (e) => toast(e.detail, 'warn'));
 
 $('#map-fit').addEventListener('click', () => slam.fit());
@@ -88,25 +65,10 @@ $('#cad-follow').addEventListener('change', (e) => viewer.setFollow(e.target.che
 // Stop path 3: publish motor_enable=false over rosbridge.
 // Reset only ever goes through safety_node, never through a topic.
 // ---------------------------------------------------------------------------
-async function postWithTimeout(url, ms, opts = {}) {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), ms);
-  try { return await fetch(url, { method: 'POST', signal: ctl.signal, cache: 'no-store', ...opts }); }
-  finally { clearTimeout(t); }
-}
-
 async function triggerStop(source = 'button') {
   stopTeleop();
-  const t0 = performance.now();
   $('#stop-btn').classList.add('is-firing');
-  let path = null;
-  try { await postWithTimeout(`${CONFIG.safetyUrl}/estop`, 400, { mode: 'no-cors' }); path = 'safety node'; }
-  catch {
-    try { const r = await postWithTimeout('/api/estop', 600); if (r.ok) path = 'web server relay'; } catch {}
-  }
-  const viaTopic = ros.publish(...CONFIG.topics.motor, { data: false });
-  if (!path && viaTopic) path = 'ROS topic only';
-  const ms = Math.round(performance.now() - t0);
+  const { path, ms } = await sendStop(ros);
   $('#stop-btn').classList.remove('is-firing');
   if (path) {
     state.stopLatched = true;
@@ -127,26 +89,10 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Reset needs a 1 s press-and-hold so it can't be clicked by accident.
-(() => {
-  const btn = $('#reset-btn'); let timer = null;
-  const cancel = () => { clearTimeout(timer); timer = null; btn.classList.remove('is-holding'); };
-  const start = (e) => {
-    e.preventDefault(); if (timer) return;
-    btn.classList.add('is-holding');
-    timer = setTimeout(async () => {
-      cancel();
-      let ok = false;
-      try { await postWithTimeout(`${CONFIG.safetyUrl}/reset`, 600, { mode: 'no-cors' }); ok = true; }
-      catch { try { ok = (await postWithTimeout('/api/reset', 800)).ok; } catch {} }
-      if (ok) { state.stopLatched = false; $('#stop-result').textContent = 'Reset sent. Motors re-enable when the safety node confirms.'; logEvent('safety', 'Reset sent from dashboard'); }
-      else { $('#stop-result').textContent = 'Reset could not reach the safety node.'; toast('Reset failed: safety node unreachable.', 'bad'); }
-    }, 1000);
-  };
-  btn.addEventListener('pointerdown', start);
-  btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); start(e); } });
-  for (const ev of ['pointerup', 'pointerleave', 'pointercancel', 'blur']) btn.addEventListener(ev, cancel);
-  btn.addEventListener('keyup', cancel);
-})();
+holdButton($('#reset-btn'), 1000, async () => {
+  if (await sendReset()) { state.stopLatched = false; $('#stop-result').textContent = 'Reset sent. Motors re-enable when the safety node confirms.'; logEvent('safety', 'Reset sent from dashboard'); }
+  else { $('#stop-result').textContent = 'Reset could not reach the safety node.'; toast('Reset failed: safety node unreachable.', 'bad'); }
+});
 
 // ---------------------------------------------------------------------------
 // Safety state "wd=1 web=0 estop=0 bf=0 br=0"

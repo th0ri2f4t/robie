@@ -20,7 +20,7 @@ export class CadViewer {
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     r.outputColorSpace = THREE.SRGBColorSpace;
-    r.setClearColor(0x161d24);
+    r.setClearColor(0x140f24);
     container.appendChild(r.domElement);
 
     this.scene = new THREE.Scene();
@@ -35,12 +35,12 @@ export class CadViewer {
     this.controls.addEventListener('start', () => { this._userOrbiting = true; });
     this.controls.addEventListener('end', () => { this._userOrbiting = false; });
 
-    this.scene.add(new THREE.HemisphereLight(0xdfe7ef, 0x2a3138, 1.1));
+    this.scene.add(new THREE.HemisphereLight(0xf1e9ff, 0x1d1436, 1.1));
     const sun = new THREE.DirectionalLight(0xffffff, 1.6);
     sun.position.set(2, -3, 5);
     this.scene.add(sun);
 
-    this.grid = new THREE.GridHelper(20, 40, 0x3c4a57, 0x26303a);
+    this.grid = new THREE.GridHelper(20, 40, 0x4a3b78, 0x2a2048);
     this.grid.rotation.x = Math.PI / 2;
     this.scene.add(this.grid);
 
@@ -55,23 +55,7 @@ export class CadViewer {
     r.setAnimationLoop(() => this._tick());
   }
 
-  async _loadModel(base) {
-    try {
-      const gltf = await new GLTFLoader().loadAsync(`${base}.glb`);
-      this.robot.add(gltf.scene);
-      this.onStatus('Showing the R.O.B.I.E. CAD model.');
-      return;
-    } catch (e) { console.warn('GLB not loaded, trying STL', e); }
-    try {
-      const geo = await new STLLoader().loadAsync(`${base}.stl`);
-      geo.computeVertexNormals();
-      this.robot.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xf2b705, roughness: 0.5 })));
-      this.onStatus('Showing the CAD model from STL (single colour).');
-      return;
-    } catch (e) { console.warn('STL not loaded, using stand-in', e); }
-    this.robot.add(buildStandIn());
-    this.onStatus('Model file not found: showing a simplified stand-in. Put robie_cad.glb in static/models.');
-  }
+  async _loadModel(base) { this.onStatus(await loadRobotModel(this.robot, base)); }
 
   // map: SlamMap instance (uses its 1 px-per-cell canvas as a texture)
   updateMap(slam) {
@@ -138,6 +122,24 @@ export class CadViewer {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
   }
+}
+
+// Load the R.O.B.I.E. model into a group: robie_cad.glb (coloured) -> robie_cad.stl -> stand-in.
+// Returns a short status sentence for the UI.
+export async function loadRobotModel(group, base = '/static/models/robie_cad') {
+  try {
+    const gltf = await new GLTFLoader().loadAsync(`${base}.glb`);
+    group.add(gltf.scene);
+    return 'Showing the R.O.B.I.E. CAD model.';
+  } catch (e) { console.warn('GLB not loaded, trying STL', e); }
+  try {
+    const geo = await new STLLoader().loadAsync(`${base}.stl`);
+    geo.computeVertexNormals();
+    group.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xf2b705, roughness: 0.5 })));
+    return 'Showing the CAD model from STL (single colour).';
+  } catch (e) { console.warn('STL not loaded, using stand-in', e); }
+  group.add(buildStandIn());
+  return 'Model file not found: showing a simplified stand-in. Put robie_cad.glb in static/models.';
 }
 
 // Simplified stand-in used only if both model files are missing.

@@ -73,6 +73,30 @@ You can also hold the drive pad buttons or the W, A, S, D, Q, E keys:
 - `/cmd_vel` is sent at 10 Hz only while something is held.
 - Releasing, switching tab, losing the ROS link or pressing STOP sends a zero `Twist`.
 
+## Look and feel
+
+The theme is pastel purple, with MS-DOS type on frosted-glass panels. The fonts (VT323 and IBM Plex Mono, both under open licences) are bundled in `static/fonts`, so nothing loads from the internet. STOP stays red on purpose: an emergency stop must be recognisable instantly.
+
+## 3D + SLAM view (`/explore`)
+
+Click **Open 3D view ↗** on the "Robot on map" panel, or go to `http://<robot>:8080/explore`.
+
+What it shows:
+- **Lidar walls (cyan):** every scan hit is binned into a 5 cm cell and drawn as a wall. They're bright when just seen and fade over 90 s.
+- **SLAM map walls (grey) and floor:** taken from `/map`.
+- **Live scan (yellow), robot model and trail.**
+
+Use the **3D / Split / Map** switch at the top to show the lidar 3D view, the full SLAM map, or both side by side. Turn on **Send goals by clicking**, then click the 3D floor or the SLAM map.
+
+**Save map** calls SLAM Toolbox's `/slam_toolbox/save_map` service. It writes `<name>.pgm` and `<name>.yaml` on the robot, in SLAM Toolbox's working folder unless you give a full path such as `/home/th0r12f4t/maps/flow_station`. The goal goes to the same goal topic as the dashboard, and both pages show it. Clicks on obstacles are refused. STOP (button, Space or Esc) works on this page too, and it switches click-to-move off.
+
+Placing the scan points:
+- **Normal case:** scan points are placed with the robot's TF tree (`laser` → `base_link` → `odom` → `map`).
+- **If TF is missing:** the page falls back to `/robot_pose` plus the lidar offset from the CAD (`CONFIG.laserFallback` in `static/js/common.js`).
+- **If the walls appear mirrored front-to-back:** set `laserFallback.yaw` to `Math.PI` there.
+
+The RPLIDAR A1 scans one horizontal plane, so the walls are that plane extruded upwards (wall height slider). It is not a true 3D scan.
+
 ## Topics and settings
 
 All topic names are at the top of `static/js/app.js`, in `CONFIG.topics`. Check two of them:
@@ -100,6 +124,6 @@ pip install websockets pillow flask
 python3 tools/mock_robot.py     # fake rosbridge, safety node and camera
 python3 server.py               # second terminal
 ```
-Then open `http://localhost:8080`. The mock robot patrols a room, sends gas and crack events, and obeys STOP, reset, goals and manual driving. It's useful for demos and the viva.
+Then open `http://localhost:8080`. The mock robot publishes `/scan` and `/tf` too, so the 3D view works. It patrols a room, sends gas and crack events, and obeys STOP, reset, goals and manual driving. It's useful for demos and the viva.
 
 Three.js r160 (MIT licence) is bundled in `static/vendor/three/`, so nothing loads from the internet.

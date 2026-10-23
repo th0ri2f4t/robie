@@ -10,7 +10,9 @@ Mock R.O.B.I.E. for testing the dashboard on a laptop (no ROS, no robot).
 The fake robot drives a loop in a small room, publishes gas and crack events,
 obeys STOP / RESET, click-to-move goals and manual /cmd_vel.
 """
-import asyncio, io, json, math, random, threading, time
+import asyncio, functools, io, json, math, random, threading, time
+import numpy as np
+print = functools.partial(print, flush=True)   # log lines appear immediately
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import websockets
@@ -35,6 +37,50 @@ def make_map():
             if x > 6.5 and y < 1.4: g[r * W + c] = -1                         # unexplored corner
     return g
 GRID = make_map()
+GRID_NP = np.array(GRID, dtype=np.int16).reshape(H, W)
+LASER = (-0.052, 0.0, 0.179)      # base_link -> laser (scan plane ~0.205 m above the floor)
+BASE_Z = 0.026                    # base_link above the floor (wheel axle height)
+
+def occupied(x, y, r=0.13):
+    for dx, dy in ((0, 0), (r, 0), (-r, 0), (0, r), (0, -r)):
+        c, rr = int((x + dx) / RES), int((y + dy) / RES)
+        if c < 0 or rr < 0 or c >= W or rr >= H or GRID_NP[rr, c] >= 65:
+            return True
+    return False
+
+ANG = np.linspace(-math.pi, math.pi, 360, endpoint=False)
+STEPS = np.arange(0.15, 12.0, 0.02)
+SEEN = np.full((H, W), -1, dtype=np.int16)    # the map the mock robot "discovers", like SLAM
+
+def scan_msg(x, y, yaw):
+    lx = x + LASER[0] * math.cos(yaw) - LASER[1] * math.sin(yaw)
+    ly = y + LASER[0] * math.sin(yaw) + LASER[1] * math.cos(yaw)
+    a = yaw + ANG[:, None]
+    px = lx + STEPS[None, :] * np.cos(a); py = ly + STEPS[None, :] * np.sin(a)
+    c = (px / RES).astype(int); r = (py / RES).astype(int)
+    inside = (c >= 0) & (r >= 0) & (c < W) & (r < H)
+    hit = np.zeros_like(inside)
+    hit[inside] = GRID_NP[r[inside], c[inside]] >= 65
+    hit |= ~inside
+    first = np.where(hit.any(1), hit.argmax(1), -1)
+    rng = np.where(first >= 0, STEPS[np.clip(first, 0, None)], np.inf)
+    # mapping: cells before the hit are free, the hit cell is occupied
+    k = np.arange(STEPS.size)[None, :]
+    free = inside & (k < np.where(first >= 0, first, STEPS.size)[:, None])
+    SEEN[r[free], c[free]] = np.where(SEEN[r[free], c[free]] == 100, 100, 0)
+    hb = np.where(first >= 0)[0]
+    hc, hr = c[hb, first[hb]], r[hb, first[hb]]
+    okh = (hc >= 0) & (hr >= 0) & (hc < W) & (hr < H)
+    SEEN[hr[okh], hc[okh]] = 100
+    rng = rng + np.random.normal(0, 0.01, rng.shape)
+    ranges = [None if not np.isfinite(v) or v > 12.0 else round(float(v), 3) for v in rng]
+    return {"header": {"stamp": stamp(), "frame_id": "laser"}, "angle_min": -math.pi, "angle_max": math.pi - 2 * math.pi / 360,
+            "angle_increment": 2 * math.pi / 360, "time_increment": 0.0, "scan_time": 0.1, "range_min": 0.15, "range_max": 12.0,
+            "ranges": ranges, "intensities": []}
+
+def tf_msg(parent, child, x, y, z, yaw):
+    return {"header": {"stamp": stamp(), "frame_id": parent}, "child_frame_id": child,
+            "transform": {"translation": {"x": x, "y": y, "z": z}, "rotation": quat(yaw)}}
 
 def quat(yaw): return {"x": 0.0, "y": 0.0, "z": math.sin(yaw / 2), "w": math.cos(yaw / 2)}
 def stamp():
@@ -48,8 +94,9 @@ def step(dt):
         if STATE["cmd"] and time.time() - STATE["cmd_t"] < 0.5:
             c = STATE["cmd"]; yaw = STATE["yaw"]
             vx, vy, wz = c["linear"]["x"], c["linear"]["y"], c["angular"]["z"]
-            STATE["x"] += (vx * math.cos(yaw) - vy * math.sin(yaw)) * dt
-            STATE["y"] += (vx * math.sin(yaw) + vy * math.cos(yaw)) * dt
+            nx = STATE["x"] + (vx * math.cos(yaw) - vy * math.sin(yaw)) * dt
+            ny = STATE["y"] + (vx * math.sin(yaw) + vy * math.cos(yaw)) * dt
+            if not occupied(nx, ny): STATE["x"], STATE["y"] = nx, ny
             STATE["yaw"] += wz * dt
             return
         if STATE["goal"]:
@@ -58,7 +105,11 @@ def step(dt):
             target = math.atan2(dy, dx); e = math.atan2(math.sin(target - STATE["yaw"]), math.cos(target - STATE["yaw"]))
             STATE["yaw"] += max(-2 * dt, min(2 * dt, e))
             v = min(0.3, d) * (1 if abs(e) < 0.6 else 0.2)
-            STATE["x"] += v * math.cos(STATE["yaw"]) * dt; STATE["y"] += v * math.sin(STATE["yaw"]) * dt
+            nx = STATE["x"] + v * math.cos(STATE["yaw"]) * dt; ny = STATE["y"] + v * math.sin(STATE["yaw"]) * dt
+            if occupied(nx, ny):
+                STATE["goal"] = None; print("goal blocked by a wall; stopping")
+            else:
+                STATE["x"], STATE["y"] = nx, ny
             return
         t = time.time() - STATE["t0"]          # patrol loop
         cx, cy, R, w = 1.6, 2.0, 1.0, 0.25
@@ -78,12 +129,40 @@ async def handler(ws):
                 CLIENTS[ws].setdefault(m["topic"], []).append([m.get("throttle_rate", 0), 0.0])
                 if m["topic"] == "/map":
                     await send(ws, "/map", map_msg())
+                if m["topic"] == "/tf_static":
+                    await send(ws, "/tf_static", {"transforms": [tf_msg("base_link", "laser", *LASER, 0.0)]})
             elif op == "unsubscribe":
                 CLIENTS[ws].pop(m["topic"], None)
+            elif op == "call_service":
+                await ws.send(json.dumps(handle_service(m)))
             elif op == "publish":
                 on_publish(m["topic"], m["msg"])
+                if m["topic"] in ("/move_goal", "/goal_pose"):
+                    await broadcast(m["topic"], m["msg"])      # a real ROS topic reaches every subscriber
     finally:
         CLIENTS.pop(ws, None)
+
+def handle_service(m):
+    """Mock of /slam_toolbox/save_map: writes <name>.pgm + <name>.yaml like SLAM Toolbox's map_saver."""
+    reply = {"op": "service_response", "id": m.get("id"), "service": m.get("service")}
+    if m.get("service") != "/slam_toolbox/save_map":
+        reply.update(result=False, values=f"mock robot has no service {m.get('service')}"); return reply
+    name = (m.get("args", {}).get("name", {}) or {}).get("data") or "robie_map"
+    name = "".join(ch if ch.isalnum() or ch in "_-./~" else "_" for ch in name)
+    import os
+    path = os.path.expanduser(name)
+    pix = bytearray()
+    for r in range(H - 1, -1, -1):              # PGM rows top-down
+        for c in range(W):
+            v = GRID[r * W + c]
+            pix.append(205 if v < 0 else (0 if v >= 65 else 254))
+    with open(path + ".pgm", "wb") as f:
+        f.write(f"P5\n{W} {H}\n255\n".encode()); f.write(bytes(pix))
+    with open(path + ".yaml", "w") as f:
+        f.write(f"image: {os.path.basename(path)}.pgm\nmode: trinary\nresolution: {RES}\norigin: [0.0, 0.0, 0.0]\n"
+                "negate: 0\noccupied_thresh: 0.65\nfree_thresh: 0.25\n")
+    print(f"saved map -> {path}.pgm / {path}.yaml")
+    reply.update(result=True, values={"result": 0}); return reply
 
 def on_publish(topic, msg):
     with LOCK:
@@ -111,7 +190,7 @@ def map_msg():
     return {"header": {"stamp": stamp(), "frame_id": "map"},
             "info": {"map_load_time": stamp(), "resolution": RES, "width": W, "height": H,
                      "origin": {"position": {"x": 0.0, "y": 0.0, "z": 0.0}, "orientation": quat(0.0)}},
-            "data": GRID}
+            "data": SEEN.ravel().tolist()}
 
 async def publisher():
     k = 0
@@ -120,6 +199,10 @@ async def publisher():
         with LOCK: x, y, yaw, web = STATE["x"], STATE["y"], STATE["yaw"], STATE["web"]
         await broadcast("/robot_pose", {"header": {"stamp": stamp(), "frame_id": "map"},
                                         "pose": {"position": {"x": x, "y": y, "z": 0.0}, "orientation": quat(yaw)}})
+        await broadcast("/tf", {"transforms": [tf_msg("map", "odom", 0.0, 0.0, 0.0, 0.0),
+                                               tf_msg("odom", "base_link", x, y, BASE_Z, yaw)]})
+        if k % 2 == 0:
+            await broadcast("/scan", scan_msg(x, y, yaw))
         if k % 10 == 0:
             await broadcast("/safety_state", {"data": f"wd=1 web={web} estop=0 bf=0 br=0"})
             await broadcast("/motor_enable", {"data": not web})
@@ -170,7 +253,7 @@ async def main():
     threading.Thread(target=ThreadingHTTPServer(("0.0.0.0", 8082), Safety).serve_forever, daemon=True).start()
     threading.Thread(target=ThreadingHTTPServer(("0.0.0.0", 8081), Cam).serve_forever, daemon=True).start()
     async with websockets.serve(handler, "0.0.0.0", 9090, max_size=2**24):
-        print("mock robot: rosbridge ws://0.0.0.0:9090, safety :8082, camera :8081/stream")
+        print("mock robot: rosbridge ws://0.0.0.0:9090 (map, pose, scan, tf), safety :8082, camera :8081/stream")
         await publisher()
 
 if __name__ == "__main__":
