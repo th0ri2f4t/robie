@@ -39,7 +39,7 @@ class WebBridge(Node):
         self.target = None
         self.remote_estop = False
         self.t0 = time.time()
-        self.create_subscription(SafetyState, '/robie/safety', self._on_safety, 10)
+        self.create_subscription(SafetyState, '/safety_state', self._on_safety, 10)
         self.create_subscription(PoseStamped, '/pose', self._on_pose, 10)
         self.create_subscription(PoseStamped, '/amcl_pose', self._on_pose, 10)
         self.create_subscription(LaserScan, '/scan', self._on_scan, 10)
@@ -47,7 +47,7 @@ class WebBridge(Node):
         self.create_subscription(Float32, '/robie/battery', self._on_batt, 10)
         self.create_subscription(String, '/robie/event', self._on_event, 10)
         self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
-        self.estop_pub = self.create_publisher(Bool, '/robie/remote_estop', 10)
+        self.estop_pub = self.create_publisher(Bool, '/sw/estop', 10)
         self.create_timer(0.05, self._tick)
         self.create_timer(0.4, self._scan_tick)
         self.create_timer(1.0, self._hb)
@@ -66,7 +66,7 @@ class WebBridge(Node):
                 continue
             self.cmdq.put(data.decode(errors='ignore').strip())
     def _on_safety(self, m):
-        self.safety = (m.estop, m.bump_front, m.bump_rear)
+        self.safety = (m.estop_pressed, m.bumper_front, m.bumper_rear)
     def _on_pose(self, m):
         q = m.pose.orientation
         yaw = math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))

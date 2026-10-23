@@ -1,44 +1,62 @@
-<?xml version="1.0"?>
+<?xml version="1.0" ?>
 <robot name="robie">
-  <link name="base_link">
-    <visual><origin xyz="0 0 0.15"/><geometry><box size="0.5 0.4 0.15"/></geometry></visual>
-    <collision><origin xyz="0 0 0.15"/><geometry><box size="0.5 0.4 0.15"/></geometry></collision>
-    <inertial><mass value="10"/><inertia ixx="0.2" iyy="0.3" izz="0.4" ixy="0" ixz="0" iyz="0"/></inertial>
-  </link>
-  <link name="base_scan">
-    <visual><geometry><cylinder radius="0.05" length="0.06"/></geometry></visual>
-    <inertial><mass value="0.1"/><inertia ixx="0.0001" iyy="0.0001" izz="0.0001" ixy="0" ixz="0" iyz="0"/></inertial>
-  </link>
-  <joint name="scan_joint" type="fixed">
-    <parent link="base_link"/><child link="base_scan"/><origin xyz="0 0 0.28"/>
-  </joint>
-
-  <gazebo>
-    <plugin name="planar_move" filename="libgazebo_ros_planar_move.so">
-      <command_topic>cmd_vel</command_topic>
-      <odometry_topic>odom</odometry_topic>
-      <odometry_frame>odom</odometry_frame>
-      <robot_base_frame>base_link</robot_base_frame>
-      <odometry_rate>20</odometry_rate>
-      <publish_odometry_tf>true</publish_odometry_tf>
-    </plugin>
-  </gazebo>
-
-  <gazebo reference="base_scan">
-    <sensor name="lidar" type="ray">
-      <pose>0 0 0.03 0 0 0</pose>
-      <update_rate>10</update_rate>
-      <ray>
-        <scan><horizontal><samples>360</samples><resolution>1</resolution>
-          <min_angle>-3.14159</min_angle><max_angle>3.14159</max_angle></horizontal></scan>
-        <range><min>0.12</min><max>10.0</max><resolution>0.02</resolution></range>
-        <noise><type>gaussian</type><mean>0.0</mean><stddev>0.01</stddev></noise>
-      </ray>
-      <plugin name="lidar_ros" filename="libgazebo_ros_ray_sensor.so">
-        <ros><remapping>~/out:=scan</remapping></ros>
-        <output_type>sensor_msgs/LaserScan</output_type>
-        <frame_name>base_scan</frame_name>
-      </plugin>
-    </sensor>
-  </gazebo>
+<link name="base_link">
+<visual><geometry><box size="0.40 0.30 0.15"/></geometry><material name="yellow"><color rgba="0.8 0.7 0.0 1.0"/></material></visual>
+<collision><geometry><box size="0.40 0.30 0.15"/></geometry></collision>
+<inertial><mass value="8.0"/><inertia ixx="0.05" ixy="0.0" ixz="0.0" iyy="0.05" iyz="0.0" izz="0.08"/></inertial>
+</link>
+<link name="top_plate">
+<visual><geometry><box size="0.38 0.28 0.02"/></geometry><material name="black"><color rgba="0.1 0.1 0.1 1.0"/></material></visual>
+</link>
+<joint name="top_plate_joint" type="fixed"><parent link="base_link"/><child link="top_plate"/><origin xyz="0 0 0.15" rpy="0 0 0"/></joint>
+<link name="base_plate">
+<visual><geometry><box size="0.42 0.32 0.01"/></geometry><material name="white"><color rgba="0.9 0.9 0.9 1.0"/></material></visual>
+</link>
+<joint name="base_plate_joint" type="fixed"><parent link="base_link"/><child link="base_plate"/><origin xyz="0 0 -0.01" rpy="0 0 0"/></joint>
+<link name="lidar_link">
+<visual><geometry><cylinder radius="0.04" length="0.06"/></geometry><material name="lidar_black"><color rgba="0.2 0.2 0.2 1.0"/></material></visual>
+</link>
+<joint name="lidar_joint" type="fixed"><parent link="top_plate"/><child link="lidar_link"/><origin xyz="0.05 0 0.02" rpy="0 0 0"/></joint>
+<link name="front_left_wheel">
+<visual><geometry><cylinder radius="0.05" length="0.04"/></geometry><material name="green"><color rgba="0.0 0.6 0.2 1.0"/></material></visual>
+</link>
+<joint name="front_left_wheel_joint" type="continuous"><parent link="base_link"/><child link="front_left_wheel"/><origin xyz="0.15 0.15 0.0" rpy="0 0 0"/><axis xyz="0 1 0"/></joint>
+<link name="front_right_wheel">
+<visual><geometry><cylinder radius="0.05" length="0.04"/></geometry><material name="green"><color rgba="0.0 0.6 0.2 1.0"/></material></visual>
+</link>
+<joint name="front_right_wheel_joint" type="continuous"><parent link="base_link"/><child link="front_right_wheel"/><origin xyz="0.15 -0.15 0.0" rpy="0 0 0"/><axis xyz="0 1 0"/></joint>
+<link name="rear_left_wheel">
+<visual><geometry><cylinder radius="0.05" length="0.04"/></geometry><material name="green"><color rgba="0.0 0.6 0.2 1.0"/></material></visual>
+</link>
+<joint name="rear_left_wheel_joint" type="continuous"><parent link="base_link"/><child link="rear_left_wheel"/><origin xyz="-0.15 0.15 0.0" rpy="0 0 0"/><axis xyz="0 1 0"/></joint>
+<link name="rear_right_wheel">
+<visual><geometry><cylinder radius="0.05" length="0.04"/></geometry><material name="green"><color rgba="0.0 0.6 0.2 1.0"/></material></visual>
+</link>
+<joint name="rear_right_wheel_joint" type="continuous"><parent link="base_link"/><child link="rear_right_wheel"/><origin xyz="-0.15 -0.15 0.0" rpy="0 0 0"/><axis xyz="0 1 0"/></joint>
+<gazebo reference="base_link"><material>Gazebo/Yellow</material></gazebo>
+<gazebo reference="lidar_link">
+<sensor type="ray" name="rplidar">
+<pose>0 0 0.03 0 0 0</pose>
+<update_rate>10</update_rate>
+<ray>
+<scan><horizontal><samples>360</samples><resolution>1</resolution><min_angle>-3.14159</min_angle><max_angle>3.14159</max_angle></horizontal></scan>
+<range><min>0.15</min><max>12.0</max><resolution>0.01</resolution></range>
+</ray>
+<plugin name="gazebo_ros_laser" filename="libgazebo_ros_ray_sensor.so">
+<ros><remapping>~/out:=/scan</remapping></ros>
+<output_type>sensor_msgs/LaserScan</output_type>
+<frame_name>lidar_link</frame_name>
+</plugin>
+</sensor>
+</gazebo>
+<gazebo>
+<plugin name="mecanum_drive" filename="libgazebo_ros_planar_move.so">
+<ros><remapping>cmd_vel:=cmd_vel</remapping><remapping>odom:=odom</remapping></ros>
+<update_rate>100</update_rate>
+<publish_odom>true</publish_odom>
+<publish_odom_tf>true</publish_odom_tf>
+<odometry_frame>odom</odometry_frame>
+<robot_base_frame>base_link</robot_base_frame>
+</plugin>
+</gazebo>
 </robot>

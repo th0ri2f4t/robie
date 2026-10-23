@@ -13,6 +13,7 @@ class SafetyNode(Node):
 
         # Subscribers
         self.create_subscription(Bool, '/hw/estop', self.estop_cb, 10)
+        self.create_subscription(Bool, '/sw/estop', self.estop_cb, 10)
         self.create_subscription(Bool, '/hw/bumper_front', self.bumper_f_cb, 10)
         self.create_subscription(Bool, '/hw/bumper_rear', self.bumper_r_cb, 10)
         self.create_subscription(Bool, '/hw/rf_alive', self.rf_cb, 10)
