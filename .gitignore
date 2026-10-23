@@ -9,3 +9,8 @@ install/
 log/
 __pycache__/
 *.bak*
+build/
+install/
+log/
+__pycache__/
+*.bak*
