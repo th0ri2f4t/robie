@@ -9,6 +9,14 @@
 #include <Arduino.h>
 #include "config.h"
 
+#ifndef CMD_TIMEOUT_MS
+#define CMD_TIMEOUT_MS 400   // drop drive if the Pi is silent this long
+#endif
+
+#ifndef DUTY_MAX
+#define DUTY_MAX 170   // cap PWM near 67 %: a 2 A, 12 V supply cannot carry four motors at full duty
+#endif
+
 static bool estop = true;   // fail-safe defaults until pins are read
 static bool bumpF = true;
 static bool bumpR = true;
@@ -16,6 +24,7 @@ static bool serialEnable = false;
 static float w[4] = {0, 0, 0, 0};
 static unsigned long lastSafetyTx = 0;
 static unsigned long lastHeartbeat = 0;
+static unsigned long lastCmd = 0;
 
 static const int pwmPins[4]  = {PIN_M_FL, PIN_M_FR, PIN_M_RL, PIN_M_RR};
 static const int dirPins1[4] = {PIN_D_FL_1, PIN_D_FR_1, PIN_D_RL_1, PIN_D_RR_1};
@@ -26,6 +35,7 @@ static void applyMotors() {
   for (int i = 0; i < 4; i++) {
     float c = constrain(w[i], -WHEEL_MAX_RAD_S, WHEEL_MAX_RAD_S);
     uint8_t duty = on ? (uint8_t)(fabs(c) / WHEEL_MAX_RAD_S * 255.0f) : 0;
+    if (duty > DUTY_MAX) duty = DUTY_MAX;
     if (duty == 0) {                        // stopped: coast (both IN LOW)
       digitalWrite(dirPins1[i], LOW);
       digitalWrite(dirPins2[i], LOW);
@@ -54,10 +64,11 @@ static void handleLine(const char* line) {
     float a, b, c, d;
     if (sscanf(line, "M,%f,%f,%f,%f", &a, &b, &c, &d) == 4) {
       w[0] = a; w[1] = b; w[2] = c; w[3] = d;
+      lastCmd = millis();
     }
   } else if (line[0] == 'S') {
     int v = 0;
-    if (sscanf(line, "S,%d", &v) == 1) serialEnable = (v == 1);
+    if (sscanf(line, "S,%d", &v) == 1) { serialEnable = (v == 1); lastCmd = millis(); }
   }
 }
 
@@ -94,6 +105,10 @@ void setup() {
 void loop() {
   readSafetyPins();
   pollSerial();
+  if (millis() - lastCmd > CMD_TIMEOUT_MS) {   // Pi silent: drop drive
+    serialEnable = false;
+    for (int i = 0; i < 4; i++) w[i] = 0;
+  }
   applyMotors();
 
   unsigned long now = millis();

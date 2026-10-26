@@ -1,19 +1,19 @@
 camera:
-width: 640
-height: 480
-framerate: 30
-quality: 50
-denoise: "cdn_off"
+ width: 640
+ height: 480
+ framerate: 30
+ quality: 50
+ denoise: 'cdn_off'
 
 stream:
-port: 8888
-host: "0.0.0.0"
+ port: 8888
+ host: '0.0.0.0'
 
 detection:
-threshold: 127
-min_area: 500
-confidence_threshold: 0.6
+ threshold: 127
+ min_area: 500
+ confidence_threshold: 0.6
 
 output:
-captures_dir: "captures"
-logs_dir: "logs"
+ captures_dir: 'captures'
+ logs_dir: 'logs'

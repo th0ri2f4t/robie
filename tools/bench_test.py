@@ -21,14 +21,33 @@ def reader():
 threading.Thread(target=reader, daemon=True).start()
 
 results = []
+cur = {"M": None, "S": None}
+wlock = threading.Lock()
+
+def keepalive():
+    # the firmware drops drive if no M or S line arrives for 400 ms, so resend the current commands at 10 Hz
+    while running:
+        try:
+            with wlock:
+                for k in ("S", "M"):
+                    if cur[k]:
+                        ser.write((cur[k] + "\n").encode())
+        except Exception:
+            return
+        time.sleep(0.1)
+
+threading.Thread(target=keepalive, daemon=True).start()
 
 def record(name, ok, auto=False):
     results.append((name, ok, auto))
     print(" [%s] %s (%s)" % ("PASS" if ok else "FAIL", name, "auto" if auto else "human"))
 
 def send(cmd, wait=0.4):
-    ser.write((cmd + "\n").encode())
-    ser.flush()
+    with wlock:
+        if cmd[0] in cur:
+            cur[cmd[0]] = cmd
+        ser.write((cmd + "\n").encode())
+        ser.flush()
     time.sleep(wait)
 
 def wait_T(expected, timeout=6):
@@ -63,33 +82,33 @@ try:
     print(" motors armed automatically (S,1)")
     for name, i in [("FL", 0), ("FR", 1), ("RL", 2), ("RR", 3)]:
         m = [0, 0, 0, 0]
-        m[i] = 1
+        m[i] = 20
         send("M,%d,%d,%d,%d" % tuple(m))
         r = ask("%s: spinning forward per tape arrow?" % name)
         record("%s forward" % name, r == "y")
         if r == "q":
             raise KeyboardInterrupt
-        m[i] = -1
+        m[i] = -20
         send("M,%d,%d,%d,%d" % tuple(m))
         r = ask("%s: spinning reverse?" % name)
         record("%s reverse" % name, r == "y")
         if r == "q":
             raise KeyboardInterrupt
         send("M,0,0,0,0")
-    send("M,1,1,1,1")
+    send("M,20,20,20,20")
     record("all forward", ask("all four forward?") == "y")
-    send("M,-1,-1,-1,-1")
+    send("M,-20,-20,-20,-20")
     record("all reverse", ask("all four reverse?") == "y")
-    send("M,1,1,-1,-1")
+    send("M,20,-20,20,-20")
     record("spin in place", ask("spinning in place?") == "y")
     send("M,0,0,0,0")
-    send("M,1,1,1,1")
+    send("M,20,20,20,20")
     input(" NOW PULL the D4 jumper, then press Enter...")
     record("E-stop cut (T,1,0,0)", wait_T("T,1,0,0"), auto=True)
     input(" RE-INSERT D4, then press Enter...")
     record("E-stop release (T,0,0,0)", wait_T("T,0,0,0"), auto=True)
     send("M,0,0,0,0")
-    send("M,1,1,1,1")
+    send("M,20,20,20,20")
     send("S,0")
     record("software disarm stops motors", ask("motors stopped after S,0?") == "y")
     input(" PULL D5 jumper, press Enter...")

@@ -1,0 +1,6 @@
+model_path: "/home/th0r12f4t/robie_ws/src/robie_vision/models/crack_yolo.onnx"
+imgsz: 640
+conf_threshold: 0.4
+nms_threshold: 0.45
+names: ['crack']
+rate_hz: 4
